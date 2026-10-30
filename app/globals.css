@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Grapevine surface.
+   Two registers deliberately coexist, per the brief: an editorial register
+   for reading (serif display type, generous measure) and a dense operating
+   register for working (tabular numerals, monospace identifiers, tight rows).
+   --------------------------------------------------------------------------- */
+
+@theme {
+  --color-ink: #1c1917;
+  --color-ink-soft: #57534e;
+  --color-ink-faint: #a8a29e;
+  --color-paper: #faf9f7;
+  --color-paper-raised: #ffffff;
+  --color-rule: #e7e5e4;
+  --color-rule-strong: #d6d3d1;
+
+  --color-vine: #3f6212;
+  --color-vine-soft: #ecfccb;
+  --color-tier-a: #166534;
+  --color-tier-b: #a16207;
+  --color-tier-c: #78716c;
+  --color-alarm: #b91c1c;
+  --color-alarm-soft: #fef2f2;
+  --color-signal: #9a3412;
+  --color-signal-soft: #fff7ed;
+
+  --font-display: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  --font-sans: ui-sans-serif, -apple-system, "Segoe UI", Helvetica, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.display {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+}
+
+/* Dense grid surface: identifiers and figures must align column-to-column. */
+.grid-surface {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+.rule-label {
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-faint);
+  font-weight: 600;
+}
+
+/* Confidence meter — a figure alone reads as precision it does not have, so
+   the bar carries the same number visually. */
+.meter {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-rule);
+  overflow: hidden;
+}
+.meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+}
+
+.scroll-x {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+@keyframes pulse-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: none; }
+}
+.step-in { animation: pulse-in 180ms ease-out; }

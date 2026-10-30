@@ -174,10 +174,10 @@ export async function dispatch(
     try {
       const resend = new Resend(process.env.RESEND_API_KEY);
       const { data, error } = await resend.emails.send({
-        from: "Grapevine <onboarding@resend.dev>",
+        from: "Vouch <onboarding@resend.dev>",
         to: [safeTo],
         subject: message.subject ?? `Following up — ${company?.name ?? ""}`,
-        text: `${message.body}\n\n—\nSent via Grapevine after human approval ${approval.id}.${
+        text: `${message.body}\n\n—\nSent via Vouch after human approval ${approval.id}.${
           opts.redirectTo ? `\nDemo redirect: intended recipient was ${person?.enrichment.email ?? "unresolved"}.` : ""
         }`,
       });

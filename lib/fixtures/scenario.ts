@@ -25,7 +25,7 @@ export const SCENARIO_NOTE =
 /** Evidence for synthetic records points at the scenario file itself. */
 function synthetic(claim: string): Evidence {
   return {
-    url: "https://github.com/kaushikkannan2/grapevine-gtm-engine/blob/main/lib/fixtures/scenario.ts",
+    url: "https://github.com/kaushikkannan2/vouch-gtm-engine/blob/main/lib/fixtures/scenario.ts",
     title: "Synthetic scenario record",
     snippet: claim,
     publisher: "scenario-fixture",

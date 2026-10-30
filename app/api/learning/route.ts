@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
     return new NextResponse(exportDpoJsonl(), {
       headers: {
         "Content-Type": "application/x-ndjson",
-        "Content-Disposition": 'attachment; filename="grapevine-preferences.jsonl"',
+        "Content-Disposition": 'attachment; filename="vouch-preferences.jsonl"',
       },
     });
   }

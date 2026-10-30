@@ -65,14 +65,14 @@ export function Rail({
             fontFamily: "var(--font-display)",
           }}
         >
-          G
+          V
         </span>
         <span>
           <span className="display block" style={{ fontSize: "1.0625rem", lineHeight: 1.1 }}>
-            Grapevine
+            Vouch
           </span>
           <span className="rule-label" style={{ fontSize: "0.5625rem" }}>
-            GTM engine
+            vouched pipeline
           </span>
         </span>
       </div>
@@ -201,6 +201,7 @@ export function TopBar({
   graph,
   mode,
   busyLabel,
+  onReset,
 }: {
   stages: Stage[];
   providers: Record<string, boolean>;
@@ -209,6 +210,7 @@ export function TopBar({
   graph: { nodeCount: number; edgeCount: number };
   mode: string;
   busyLabel: string | null;
+  onReset?: () => void;
 }) {
   const live = Object.entries(providers).filter(([, v]) => v);
   return (
@@ -256,6 +258,20 @@ export function TopBar({
         >
           {live.length}/7 wired
         </span>
+        {onReset && (
+          <button
+            onClick={onReset}
+            title="Clear everything and start from an empty workspace"
+            className="mono px-2 py-1 rounded"
+            style={{
+              fontSize: "0.625rem",
+              color: "var(--color-ink-faint)",
+              border: "1px solid var(--color-rule)",
+            }}
+          >
+            reset
+          </button>
+        )}
       </div>
     </header>
   );

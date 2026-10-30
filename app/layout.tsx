@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Grapevine — Graph-Native GTM Engine",
+  title: "Vouch — every claim sourced, every send approved",
   description:
     "Plain-language product description in, evidence-cited pipeline out. ICP inference, buyer discovery, knowledge-graph reasoning, and human-approved multi-channel outreach.",
 };

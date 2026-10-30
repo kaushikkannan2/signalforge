@@ -93,7 +93,7 @@ export async function meter(
           event_id: event.id,
           timestamp: event.at,
           properties: { ...event.properties, credits },
-          source: "grapevine",
+          source: "vouch",
         }),
       });
       event.mirroredToFlexprice = res.ok;

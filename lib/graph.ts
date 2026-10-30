@@ -133,6 +133,13 @@ class Graph {
     return results.sort((a, b) => a.edges.length - b.edges.length).slice(0, 8);
   }
 
+  /** Clears nodes, edges AND the adjacency index. */
+  clear() {
+    this.nodes.clear();
+    this.edges.length = 0;
+    this.adj.clear();
+  }
+
   stats() {
     const nodesByLabel: Record<string, number> = {};
     for (const n of this.nodes.values()) nodesByLabel[n.label] = (nodesByLabel[n.label] ?? 0) + 1;
@@ -159,5 +166,5 @@ class Graph {
 
 // Module-global singleton. Next.js hot-reloads modules in dev, so we stash it
 // on globalThis to survive recompiles and keep demo state alive.
-const g = globalThis as unknown as { __gvGraph?: Graph };
-export const graph: Graph = g.__gvGraph ?? (g.__gvGraph = new Graph());
+const g = globalThis as unknown as { __vouchGraph?: Graph };
+export const graph: Graph = g.__vouchGraph ?? (g.__vouchGraph = new Graph());

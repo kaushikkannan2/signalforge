@@ -25,7 +25,7 @@ no name is a real person's. Nothing identifiable appears in a frame.
 
 ### Masking, for when you want to show live data
 
-`GRAPEVINE_PRIVACY_MODE=mask` is a first-class mode, not screenshot editing.
+`VOUCH_PRIVACY_MODE=mask` is a first-class mode, not screenshot editing.
 It renders `Dana Okafor` as `Dana O.`, `dana.okafor@…` as `d••••••••@…`, and
 strips the identifying path from evidence URLs while keeping the host — because
 the host *is* the evidence. Masking is a presentation boundary: the pipeline
@@ -33,7 +33,7 @@ keeps operating on real values, so you are demonstrating the real system.
 
 Use it for the one live run that proves the citations are real:
 ```bash
-GRAPEVINE_PRIVACY_MODE=mask npm run dev
+VOUCH_PRIVACY_MODE=mask npm run dev
 ```
 
 ### Dispatch cannot reach a real prospect by accident
@@ -41,7 +41,7 @@ GRAPEVINE_PRIVACY_MODE=mask npm run dev
 A second, independent guard sits beneath the approval gate. The HITL gate asks
 *"did a human approve this?"*; `assertSafeRecipient()` asks *"is it safe to
 actually deliver?"* and refuses any recipient other than `DEMO_INBOX` unless
-`GRAPEVINE_ALLOW_REAL_SEND=true` is set deliberately. **The safe behaviour is
+`VOUCH_ALLOW_REAL_SEND=true` is set deliberately. **The safe behaviour is
 what you get by forgetting to configure something**, which is the only way a
 safety default actually holds.
 

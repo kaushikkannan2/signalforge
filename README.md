@@ -1,8 +1,8 @@
-# Grapevine — a graph-native GTM engine
+# Vouch — a graph-native GTM engine
 
 Plain-language product description in. Evidence-cited pipeline out.
 
-Grapevine infers who you should sell to, finds those accounts and the named
+Vouch infers who you should sell to, finds those accounts and the named
 people inside them with a source link on every claim, connects them in a
 knowledge graph so you can ask relationship questions, drafts outreach that
 quotes the specific event that makes them in-market, and **refuses to send
@@ -23,7 +23,7 @@ in a prompt — the "where" column is the file you can read to check.
 
 A fourth: **a demo cannot mail a real prospect by accident.** `assertSafeRecipient()`
 sits beneath the approval gate and refuses any recipient other than `DEMO_INBOX`
-unless `GRAPEVINE_ALLOW_REAL_SEND=true` is set deliberately — so the safe
+unless `VOUCH_ALLOW_REAL_SEND=true` is set deliberately — so the safe
 behaviour is what you get by forgetting to configure something.
 
 A fifth, quieter one: **an inferred email never renders as a verified one.**
@@ -34,6 +34,12 @@ accepts mail, which is not the same as the mailbox existing, and the 0.62
 confidence cap reflects exactly that.
 
 ---
+
+> **Two identifiers still say "grapevine" on purpose.** The Flexprice customer
+> external ID (`grapevine-demo-org`) is registered on Flexprice's side, and the
+> Band agent handles (`gv-planner`, `gv-builder`, `gv-reviewer`, `gv-security`)
+> were registered in their dashboard where each API key is shown exactly once.
+> Renaming either would silently detach a live integration, so they stay.
 
 ## Quick start
 
@@ -151,7 +157,7 @@ can collide with a real organisation or person. `data/` is gitignored.
 
 ### Privacy
 
-`GRAPEVINE_PRIVACY_MODE=mask` renders `Dana Okafor` as `Dana O.` and
+`VOUCH_PRIVACY_MODE=mask` renders `Dana Okafor` as `Dana O.` and
 `dana.okafor@…` as `d••••••••@…`, and strips identifying paths from evidence
 URLs while keeping the host — because the host is the evidence. Masking is a
 presentation boundary; the pipeline still operates on real values, so a masked
@@ -160,7 +166,7 @@ is a publication, and an inferred address may also be wrong.
 
 ### Data modes
 
-`GRAPEVINE_DATA_MODE=demo` serves a **synthetic** dataset (`lib/fixtures/demo.ts`)
+`VOUCH_DATA_MODE=demo` serves a **synthetic** dataset (`lib/fixtures/demo.ts`)
 for exercising the UI deterministically. Those companies are invented and
 labelled as such — we do not attach invented funding rounds or job titles to
 real companies, and we do not draft outreach to a named person who doesn't hold
@@ -215,7 +221,7 @@ the actual mechanism is that nobody can answer *why this account, why now,
 why this message* — so targeting drifts and copy goes generic.
 
 **The wedge.** Not "AI SDR". The wedge is **evidence**. Every incumbent asks you
-to trust a score; Grapevine shows you the sentence and the URL it came from.
+to trust a score; Vouch shows you the sentence and the URL it came from.
 That matters commercially and not just ethically: the reason outbound teams
 distrust AI tooling is that they've been burned by confident fabrication, and
 the reason their compliance teams block it is that there's no audit trail. A

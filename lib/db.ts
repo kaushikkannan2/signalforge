@@ -76,13 +76,22 @@ function empty(): Database {
   };
 }
 
-const store = globalThis as unknown as { __gvDb?: Database };
-export const db: Database = store.__gvDb ?? (store.__gvDb = empty());
+const store = globalThis as unknown as { __vouchDb?: Database };
+export const db: Database = store.__vouchDb ?? (store.__vouchDb = empty());
 
 export function resetDb() {
-  store.__gvDb = empty();
-  graph.nodes.clear();
-  graph.edges.length = 0;
+  const fresh = empty();
+  // Mutate in place: other modules hold a live reference to `db`, so
+  // reassigning the global would leave them pointing at the old object.
+  for (const k of Object.keys(fresh) as (keyof Database)[]) {
+    const incoming = fresh[k];
+    const current = db[k];
+    if (Array.isArray(incoming) && Array.isArray(current)) current.length = 0;
+    else if (k === "ledger") Object.assign(db.ledger, fresh.ledger);
+  }
+  db.seeded = false;
+  graph.clear();
+  store.__vouchDb = db;
 }
 
 // --- graph-syncing writers -------------------------------------------------

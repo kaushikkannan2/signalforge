@@ -94,11 +94,19 @@ interface BanditState {
   decisions: { context: ContextId; arm: ArmId; sampled: Record<ArmId, number>; at: string }[];
 }
 
-const g = globalThis as unknown as { __gvBandit?: BanditState };
+const g = globalThis as unknown as { __vouchBandit?: BanditState };
 const state: BanditState =
-  g.__gvBandit ?? (g.__gvBandit = { posteriors: new Map(), rewards: [], decisions: [] });
+  g.__vouchBandit ?? (g.__vouchBandit = { posteriors: new Map(), rewards: [], decisions: [] });
 
 const key = (context: ContextId, arm: ArmId) => `${context}::${arm}`;
+
+/** Clears learned state. A reset that leaves posteriors behind is not a reset. */
+export function resetBandit() {
+  state.posteriors.clear();
+  state.rewards.length = 0;
+  state.decisions.length = 0;
+  originalBodies.clear();
+}
 
 function posterior(context: ContextId, arm: ArmId): ArmPosterior {
   const k = key(context, arm);
@@ -340,9 +348,9 @@ function promptFor(message: OutreachMessage): string {
   ].join("\n");
 }
 
-const originals = globalThis as unknown as { __gvOriginals?: Map<string, string> };
+const originals = globalThis as unknown as { __vouchOriginals?: Map<string, string> };
 const originalBodies: Map<string, string> =
-  originals.__gvOriginals ?? (originals.__gvOriginals = new Map());
+  originals.__vouchOriginals ?? (originals.__vouchOriginals = new Map());
 
 /** Called at draft time so an edit has something to be compared against. */
 export function recordOriginal(messageId: string, body: string) {

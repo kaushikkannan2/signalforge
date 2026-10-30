@@ -1,4 +1,4 @@
-# Grapevine — System Design
+# Vouch — System Design
 
 Companion to `README.md`. This document covers what the README does not: the
 graph ontology, the query logic, the reasoning loops, and how the bonus

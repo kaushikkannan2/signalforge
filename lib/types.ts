@@ -1,5 +1,5 @@
 // ============================================================================
-// Grapevine domain model.
+// Vouch domain model.
 // Every externally-sourced claim in this system carries an Evidence[] array.
 // There is no code path that renders a company, buyer, signal or competitor
 // fact without its citations — that is a hard requirement of the brief

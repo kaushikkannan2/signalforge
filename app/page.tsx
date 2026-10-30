@@ -274,6 +274,29 @@ export default function Workspace() {
       };
     });
 
+  const resetAll = () =>
+    step("Resetting workspace", async () => {
+      await post("/api/reset", {});
+      setIcp(null);
+      setExpansions([]);
+      setCompanies([]);
+      setSignals([]);
+      setCompetitors([]);
+      setPeople([]);
+      setMessages([]);
+      setApprovals([]);
+      setDispatches([]);
+      setLeads([]);
+      setAnalytics(null);
+      setGraphResults([]);
+      setSnapshotGraph(null);
+      setGraphFocus(undefined);
+      setLearning(null);
+      setDrawer(null);
+      setView("intake");
+      return { title: "Workspace empty", detail: "Every stage is unticked. Start the run." };
+    });
+
   const snapshot = () =>
     step("Saving snapshot", async () => {
       const d = await post("/api/snapshot", { action: "save" });
@@ -391,6 +414,7 @@ export default function Workspace() {
     { id: "c7", label: "Run agent collaboration", hint: "band", run: runBand },
     { id: "c7b", label: "Show the learning layer", hint: "policy", run: () => { setView("learning"); loadLearning(); } },
     { id: "c8", label: "Freeze dataset to disk", hint: "snapshot", run: snapshot },
+    { id: "d0", label: "Reset workspace — start from empty", hint: "demo", run: resetAll },
     { id: "d1", label: "Load demo scenario (7 narration accounts)", hint: "dataset", run: () => loadScenario(0) },
     { id: "d2", label: "Load scale dataset (300 accounts)", hint: "dataset", run: () => loadScenario(300) },
     { id: "d3", label: "Load stress dataset (1,000 accounts)", hint: "dataset", run: () => loadScenario(1000) },
@@ -416,6 +440,7 @@ export default function Workspace() {
           graph={state?.graph ?? { nodeCount: 0, edgeCount: 0 }}
           mode={state?.mode ?? "demo"}
           busyLabel={busy}
+          onReset={resetAll}
         />
 
         <div className="flex-1 flex min-w-0 overflow-hidden">

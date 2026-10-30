@@ -70,7 +70,7 @@ export async function loadSnapshot(path = SNAPSHOT): Promise<boolean> {
  * Loads once per process. Called by the state route, which every page hits on
  * mount, so a restart mid-demo silently rehydrates rather than showing zeros.
  */
-const flags = globalThis as unknown as { __gvHydrated?: boolean; __gvNoHydrate?: boolean };
+const flags = globalThis as unknown as { __vouchHydrated?: boolean; __vouchNoHydrate?: boolean };
 
 /**
  * Called by anything that deliberately establishes state (the scenario
@@ -79,19 +79,19 @@ const flags = globalThis as unknown as { __gvHydrated?: boolean; __gvNoHydrate?:
  * non-reproducible AND resurrected records the reset was meant to clear.
  */
 export function suppressHydration() {
-  flags.__gvNoHydrate = true;
-  flags.__gvHydrated = true;
+  flags.__vouchNoHydrate = true;
+  flags.__vouchHydrated = true;
 }
 
 export function allowHydration() {
-  flags.__gvNoHydrate = false;
+  flags.__vouchNoHydrate = false;
 }
 
 export async function autoHydrate(): Promise<boolean> {
-  if (flags.__gvNoHydrate || flags.__gvHydrated || db.companies.length > 0) {
-    flags.__gvHydrated = true;
+  if (flags.__vouchNoHydrate || flags.__vouchHydrated || db.companies.length > 0) {
+    flags.__vouchHydrated = true;
     return false;
   }
-  flags.__gvHydrated = true;
+  flags.__vouchHydrated = true;
   return loadSnapshot().catch(() => false);
 }

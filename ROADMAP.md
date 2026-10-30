@@ -1,4 +1,4 @@
-# Grapevine — Build Roadmap & Review Log
+# Vouch — Build Roadmap & Review Log
 
 > **Living document.** I update this after every chunk. When you see ✅ it is ready
 > for you to review, and the chunk will have three sections: *What I built in plain
@@ -211,7 +211,7 @@ the HITL gate, the Flexprice credit gate firing, Snyk, or the video.
 ---
 
 ## Decisions log
-- **2026-10-30** Product name **Grapevine** — graph-native GTM. Changeable on request.
+- **2026-10-30** Product name **Vouch** — graph-native GTM. Changeable on request.
 - **2026-10-30** One datastore. Leads, stages, messages and meter events all live as
   graph nodes, so the graph is load-bearing rather than decorative.
 - **2026-10-30** Band agents run as a local worker process, not on Vercel — their SDK

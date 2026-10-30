@@ -175,8 +175,8 @@ export function Analytics({ data }: { data: AnalyticsData }) {
                     className="absolute inset-y-0 left-0 rounded-md"
                     style={{
                       width: `${(f.count / max) * 100}%`,
-                      background: "linear-gradient(90deg, rgba(52,211,153,0.9), rgba(56,189,248,0.75))",
-                      boxShadow: "0 0 12px rgba(52,211,153,0.3)",
+                      background: "linear-gradient(90deg, rgba(232,67,31,0.95), rgba(255,122,69,0.95) 45%, rgba(255,197,61,0.9))",
+                      boxShadow: "0 0 14px rgba(255,122,69,0.35)",
                       transition: "width 700ms cubic-bezier(0.16,1,0.3,1)",
                     }}
                   />

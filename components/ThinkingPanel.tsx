@@ -23,7 +23,7 @@ const KIND: Record<
   ThinkingStep["kind"],
   { glyph: string; color: string; label: string }
 > = {
-  reasoning: { glyph: "◆", color: "var(--color-vine)", label: "reasoning" },
+  reasoning: { glyph: "◆", color: "var(--color-ember)", label: "reasoning" },
   tool_call: { glyph: "↗", color: "var(--color-person)", label: "external call" },
   graph_query: { glyph: "⬡", color: "var(--color-bridge)", label: "graph query" },
   validation: { glyph: "✓", color: "var(--color-vine)", label: "validation" },
@@ -100,7 +100,7 @@ export function ThinkingPanel({ running }: { running: boolean }) {
         className="px-3 py-2.5 border-b shrink-0"
         style={{
           borderColor: "var(--color-rule)",
-          background: "linear-gradient(180deg, rgba(52,211,153,0.07), transparent)",
+          background: "linear-gradient(180deg, rgba(255,122,69,0.09), transparent)",
         }}
       >
         <div className="flex items-center gap-2">
@@ -110,11 +110,11 @@ export function ThinkingPanel({ running }: { running: boolean }) {
               width: 7,
               height: 7,
               background: running
-                ? "var(--color-vine)"
+                ? "var(--color-ember)"
                 : connected
                   ? "var(--color-ink-faint)"
                   : "var(--color-alarm)",
-              color: "var(--color-vine)",
+              color: "var(--color-ember)",
             }}
           />
           <span className="display" style={{ fontSize: "0.9375rem" }}>

@@ -76,8 +76,8 @@ function empty(): Database {
   };
 }
 
-const store = globalThis as unknown as { __vouchDb?: Database };
-export const db: Database = store.__vouchDb ?? (store.__vouchDb = empty());
+const store = globalThis as unknown as { __sfDb?: Database };
+export const db: Database = store.__sfDb ?? (store.__sfDb = empty());
 
 export function resetDb() {
   const fresh = empty();
@@ -91,7 +91,7 @@ export function resetDb() {
   }
   db.seeded = false;
   graph.clear();
-  store.__vouchDb = db;
+  store.__sfDb = db;
 }
 
 // --- graph-syncing writers -------------------------------------------------

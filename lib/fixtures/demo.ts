@@ -1,7 +1,7 @@
 // ============================================================================
 // DEMO DATASET — synthetic, and labelled as such everywhere it surfaces.
 //
-// Read this before judging the citation story: Vouch has two data modes.
+// Read this before judging the citation story: SignalForge has two data modes.
 //
 //   mode = "demo"      Companies and people in THIS file are invented. They
 //                      exist so the UI, the HITL gate, the pipeline and the
@@ -51,10 +51,10 @@ function ev(url: string, title: string, snippet: string): Evidence {
 
 export const DEMO_INTAKE: ProductIntake = {
   id: "intake_0001",
-  companyName: "Vouch",
-  productName: "Vouch GTM Engine",
+  companyName: "SignalForge",
+  productName: "SignalForge GTM Engine",
   description:
-    "Vouch turns a plain-language product description into a working outbound pipeline. It infers your ICP, finds accounts and named buyers with a source link on every claim, connects them in a knowledge graph so you can see warm-intro paths and live buying signals, drafts multi-channel sequences that quote the specific trigger event, and refuses to send anything until a human approves it.",
+    "SignalForge turns a plain-language product description into a working outbound pipeline. It infers your ICP, finds accounts and named buyers with a source link on every claim, connects them in a knowledge graph so you can see warm-intro paths and live buying signals, drafts multi-channel sequences that quote the specific trigger event, and refuses to send anything until a human approves it.",
   features: [
     "Plain-language intake that emits a structured ICP with per-field confidence",
     "Evidence-cited account and buyer discovery",

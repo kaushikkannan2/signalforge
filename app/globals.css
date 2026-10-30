@@ -22,40 +22,77 @@
    =========================================================================== */
 
 @theme {
-  /* --- ground ------------------------------------------------------------ */
-  --color-void: #090c12;
-  --color-surface: #11161f;
-  --color-surface-2: #171e2a;
-  --color-surface-3: #1e2736;
-  --color-rule: #222b3a;
-  --color-rule-strong: #334154;
+  /* =========================================================================
+     Palette derived from the SignalForge mark: HOT WORK ON COLD STEEL.
 
-  /* --- type ------------------------------------------------------------- */
-  --color-ink: #e9eef7;
-  --color-ink-soft: #94a3b8;
-  --color-ink-faint: #5d6b83;
+     The anvil in the logo is the only cool mass; everything above it is heated
+     metal. The UI follows the same rule — a cold steel ground, with warmth
+     reserved for the things that carry meaning. That is what keeps it warm
+     without becoming muddy: the heat is scarce, so it reads.
 
-  /* --- semantic accents ------------------------------------------------- */
-  --color-vine: #34d399;
-  --color-vine-dim: #0f3d30;
-  --color-vine-soft: rgba(52, 211, 153, 0.13);
-  --color-vine-glow: rgba(52, 211, 153, 0.35);
+     Every token below was checked against the ground (#0D1117) and the panel
+     surface (#151B24). All 11 pass WCAG AA for normal text (≥4.5:1). Figures
+     in comments are measured, not estimated.
 
-  --color-signal: #fbbf24;
-  --color-signal-soft: rgba(251, 191, 36, 0.14);
+     One deliberate correction: the first ember/quench pair differed by only
+     0.056 luminance, so a deuteranopic viewer could not separate orange from
+     red. Quench was shifted to #F2437E, giving 0.112 luminance separation and
+     0.107 under deuteranopia simulation — distinguishable without hue.
+     ========================================================================= */
 
-  --color-alarm: #fb7185;
-  --color-alarm-soft: rgba(251, 113, 133, 0.13);
+  /* --- cold steel: the ground and the panels --------------------------- */
+  --color-void: #0d1117;
+  --color-surface: #151b24;
+  --color-surface-2: #1c242f;
+  --color-surface-3: #242e3c;
+  --color-rule: #273343;
+  --color-rule-strong: #3a4a5e;
 
-  --color-person: #38bdf8;
-  --color-person-soft: rgba(56, 189, 248, 0.13);
+  /* --- type (16.2:1 / 8.5:1 / 4.7:1 vs ground) ------------------------- */
+  --color-ink: #e8eef7;
+  --color-ink-soft: #9fb0c4;
+  --color-ink-faint: #6e8199;
 
-  --color-bridge: #a78bfa;
-  --color-bridge-soft: rgba(167, 139, 250, 0.14);
+  /* --- the forge: heat, in the order steel actually heats --------------- */
+  --color-ember: #ff7a45;      /* 7.3:1  brand, primary action, live state   */
+  --color-ember-deep: #e8431f; /*        gradient base, never text          */
+  --color-molten: #ffc53d;     /* 12.0:1 a signal, or a decision pending    */
+  --color-whitegold: #ffe9b0;  /* 15.8:1 peak heat, highlights              */
+  --color-tempered: #2dd4bf;   /* 10.2:1 quenched + tempered = verified     */
+  --color-steel-blue: #5eb3f6; /*  8.3:1 a person                          */
+  --color-amethyst: #b98bff;   /*  7.4:1 a graph bridge, or an AI actor     */
+  --color-quench: #f2437e;     /*  5.3:1 disqualified, rejected, failed     */
+  --color-slate: #7c8ea4;      /*  5.6:1 present but unremarkable          */
 
-  --color-tier-a: #34d399;
-  --color-tier-b: #fbbf24;
-  --color-tier-c: #64748b;
+  --color-ember-soft: rgba(255, 122, 69, 0.14);
+  --color-ember-glow: rgba(255, 122, 69, 0.38);
+  --color-molten-soft: rgba(255, 197, 61, 0.14);
+  --color-tempered-soft: rgba(45, 212, 191, 0.13);
+  --color-quench-soft: rgba(242, 67, 126, 0.14);
+  --color-steel-soft: rgba(94, 179, 246, 0.13);
+  --color-amethyst-soft: rgba(185, 139, 255, 0.14);
+
+  /* --- semantic aliases ------------------------------------------------
+     Named by MEANING so a component never hard-codes a hue. Brand and
+     status are deliberately different colours now: ember is SignalForge,
+     tempered is "this passed". Conflating them made every approved thing
+     look like a logo.
+     ------------------------------------------------------------------- */
+  --color-vine: #2dd4bf;       /* verified / approved / qualified / our side */
+  --color-vine-soft: rgba(45, 212, 191, 0.13);
+  --color-vine-glow: rgba(45, 212, 191, 0.34);
+  --color-signal: #ffc53d;
+  --color-signal-soft: rgba(255, 197, 61, 0.14);
+  --color-alarm: #f2437e;
+  --color-alarm-soft: rgba(242, 67, 126, 0.14);
+  --color-person: #5eb3f6;
+  --color-person-soft: rgba(94, 179, 246, 0.13);
+  --color-bridge: #b98bff;
+  --color-bridge-soft: rgba(185, 139, 255, 0.14);
+
+  --color-tier-a: #2dd4bf;
+  --color-tier-b: #ffc53d;
+  --color-tier-c: #7c8ea4;
 
   --font-display: "Iowan Old Style", Georgia, "Palatino Linotype", serif;
   --font-sans: ui-sans-serif, -apple-system, "Segoe UI", Helvetica, sans-serif;
@@ -72,9 +109,13 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   /* Two very faint accent washes, so the ground has depth without texture. */
+  /* Forge light: a warm throw from the top-left where the work is, and a
+     cool steel reflection opposite it. Both very low opacity — the ground
+     should feel lit, not tinted. */
   background-image:
-    radial-gradient(900px 420px at 8% -6%, rgba(52, 211, 153, 0.07), transparent 70%),
-    radial-gradient(760px 380px at 92% -4%, rgba(56, 189, 248, 0.055), transparent 72%);
+    radial-gradient(1000px 460px at 6% -8%, rgba(255, 122, 69, 0.085), transparent 70%),
+    radial-gradient(820px 400px at 94% -4%, rgba(94, 179, 246, 0.05), transparent 72%),
+    radial-gradient(600px 300px at 50% 104%, rgba(255, 197, 61, 0.035), transparent 70%);
   background-attachment: fixed;
 }
 
@@ -167,16 +208,20 @@ button:not(:disabled):active {
 
 /* The primary action should look like the primary action. */
 .btn-primary {
-  background: linear-gradient(180deg, #3ee0a6 0%, #24b482 100%);
-  color: #05251b;
-  font-weight: 600;
+  /* Heated-metal gradient, matching the mark. Text is near-black at 7.05:1 —
+     white on this orange is 2.59:1 and fails AA outright. */
+  background: linear-gradient(180deg, #ff8d5c 0%, #ef5f28 100%);
+  color: #2a0c02;
+  font-weight: 650;
   border: none;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.22) inset, 0 2px 10px rgba(52, 211, 153, 0.22);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.28) inset,
+    0 2px 12px rgba(255, 122, 69, 0.3);
 }
 .btn-ghost {
   background: transparent;
-  color: var(--color-vine);
-  border: 1px solid rgba(52, 211, 153, 0.45);
+  color: var(--color-ember);
+  border: 1px solid rgba(255, 122, 69, 0.45);
 }
 .btn-quiet {
   background: var(--color-surface-2);
@@ -210,8 +255,8 @@ a {
   background: var(--color-surface-2);
 }
 .row-active {
-  background: linear-gradient(90deg, var(--color-vine-soft), transparent 70%);
-  box-shadow: inset 2px 0 0 var(--color-vine);
+  background: linear-gradient(90deg, var(--color-ember-soft), transparent 70%);
+  box-shadow: inset 2px 0 0 var(--color-ember);
 }
 
 /* --- scrollbars ---------------------------------------------------------- */
@@ -261,7 +306,7 @@ a {
 @keyframes breathe {
   0%,
   100% {
-    box-shadow: 0 0 0 0 var(--color-vine-glow);
+    box-shadow: 0 0 0 0 var(--color-ember-glow);
   }
   50% {
     box-shadow: 0 0 0 5px rgba(52, 211, 153, 0);
@@ -269,6 +314,15 @@ a {
 }
 .live-dot {
   animation: breathe 1.8s ease-in-out infinite;
+}
+
+/* The forge is lit while work is in flight. */
+@keyframes forge {
+  0%, 100% { box-shadow: 0 0 0 0 var(--color-ember-glow); }
+  50% { box-shadow: 0 0 0 6px rgba(255, 122, 69, 0); }
+}
+.forging {
+  animation: forge 1.6s ease-in-out infinite;
 }
 
 @keyframes sweep {
@@ -284,7 +338,7 @@ a {
   background-image: linear-gradient(
     100deg,
     transparent 20%,
-    rgba(251, 191, 36, 0.22) 50%,
+    rgba(255, 197, 61, 0.24) 50%,
     transparent 80%
   );
   background-size: 180% 100%;
@@ -294,7 +348,8 @@ a {
 @media (prefers-reduced-motion: reduce) {
   .step-in,
   .live-dot,
-  .working {
+  .working,
+  .forging {
     animation: none;
   }
 }

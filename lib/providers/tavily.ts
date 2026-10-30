@@ -27,7 +27,7 @@ export interface SearchResult {
 }
 
 export const dataMode = () =>
-  (process.env.VOUCH_DATA_MODE ?? "demo") === "live" ? "live" : "demo";
+  (process.env.SIGNALFORGE_DATA_MODE ?? "demo") === "live" ? "live" : "demo";
 
 export const tavilyConfigured = () => Boolean(process.env.TAVILY_API_KEY);
 

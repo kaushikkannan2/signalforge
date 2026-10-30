@@ -39,12 +39,12 @@ interface GEdgeLite {
 }
 
 const LABEL_STYLE: Record<string, { fill: string; r: number; ring?: string }> = {
-  Company: { fill: "#34d399", r: 11 },
-  Person: { fill: "#38bdf8", r: 8 },
-  Signal: { fill: "#fbbf24", r: 6 },
-  Competitor: { fill: "#fb7185", r: 9 },
-  Product: { fill: "#a78bfa", r: 7 },
-  Lead: { fill: "#64748b", r: 5 },
+  Company: { fill: "#2dd4bf", r: 11 },
+  Person: { fill: "#5eb3f6", r: 8 },
+  Signal: { fill: "#ffc53d", r: 6 },
+  Competitor: { fill: "#f2437e", r: 9 },
+  Product: { fill: "#b98bff", r: 7 },
+  Lead: { fill: "#7c8ea4", r: 5 },
 };
 
 const EDGE_LABEL: Record<string, string> = {
@@ -209,8 +209,8 @@ export function Constellation({
       <svg width="100%" viewBox={`0 0 ${width} ${height}`} style={{ display: "block", background: "var(--color-surface-2)" }}>
         <defs>
           <radialGradient id="glow">
-            <stop offset="0%" stopColor="#34d399" stopOpacity="0.16" />
-            <stop offset="100%" stopColor="#34d399" stopOpacity="0" />
+            <stop offset="0%" stopColor="#ff7a45" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="#ff7a45" stopOpacity="0" />
           </radialGradient>
         </defs>
 
@@ -229,7 +229,7 @@ export function Constellation({
                 y1={a.y}
                 x2={b.x}
                 y2={b.y}
-                stroke={highlighted ? "var(--color-vine)" : isBridge ? "var(--color-bridge)" : "var(--color-rule-strong)"}
+                stroke={highlighted ? "var(--color-ember)" : isBridge ? "var(--color-bridge)" : "var(--color-rule-strong)"}
                 strokeWidth={highlighted ? 1.8 : isBridge ? 1.4 : 1}
                 strokeDasharray={isBridge ? "4 3" : undefined}
                 opacity={hover && !highlighted ? 0.25 : 0.85}
@@ -272,7 +272,7 @@ export function Constellation({
               <circle
                 r={style.r}
                 fill={style.fill}
-                stroke="#0b0f16"
+                stroke="#0d1117"
                 strokeWidth={1.5}
                 opacity={n.props.disqualified ? 0.4 : 1}
               />

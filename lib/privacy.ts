@@ -22,7 +22,7 @@ import type { Company, Person } from "./types";
 export type PrivacyMode = "full" | "mask";
 
 export const privacyMode = (): PrivacyMode =>
-  (process.env.VOUCH_PRIVACY_MODE ?? "full") === "mask" ? "mask" : "full";
+  (process.env.SIGNALFORGE_PRIVACY_MODE ?? "full") === "mask" ? "mask" : "full";
 
 /** `bill.stathopoulos@salescaptain.io` → `b••••••••••@salescaptain.io` */
 export function maskEmail(email?: string): string | undefined {
@@ -99,25 +99,25 @@ export class DispatchSafetyError extends Error {
 /**
  * Prevents the demo from mailing a real prospect.
  *
- * `VOUCH_ALLOW_REAL_SEND=true` is the explicit, deliberate opt-out. Until
+ * `SIGNALFORGE_ALLOW_REAL_SEND=true` is the explicit, deliberate opt-out. Until
  * it is set, a dispatch to anything other than DEMO_INBOX is refused — so the
  * safe behaviour is what you get by forgetting to configure something, which
  * is the only way a safety default actually holds.
  */
 export function assertSafeRecipient(to: string, intended?: string): string {
-  const allowReal = process.env.VOUCH_ALLOW_REAL_SEND === "true";
+  const allowReal = process.env.SIGNALFORGE_ALLOW_REAL_SEND === "true";
   const demoInbox = process.env.DEMO_INBOX;
 
   if (allowReal) return to;
 
   if (!demoInbox) {
     throw new DispatchSafetyError(
-      "Refusing to send: VOUCH_ALLOW_REAL_SEND is not true and DEMO_INBOX is unset, so there is nowhere safe to deliver. Set DEMO_INBOX to your own address.",
+      "Refusing to send: SIGNALFORGE_ALLOW_REAL_SEND is not true and DEMO_INBOX is unset, so there is nowhere safe to deliver. Set DEMO_INBOX to your own address.",
     );
   }
   if (to !== demoInbox) {
     throw new DispatchSafetyError(
-      `Refusing to send to ${to}: outside demo mode only DEMO_INBOX (${demoInbox}) may receive mail. Set VOUCH_ALLOW_REAL_SEND=true to override deliberately.`,
+      `Refusing to send to ${to}: outside demo mode only DEMO_INBOX (${demoInbox}) may receive mail. Set SIGNALFORGE_ALLOW_REAL_SEND=true to override deliberately.`,
     );
   }
   if (intended && intended !== demoInbox) {

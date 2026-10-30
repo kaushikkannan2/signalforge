@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Logo } from "./Logo";
 
 /* ---------------------------------------------------------------------------
    App shell.
@@ -48,33 +49,11 @@ export function Rail({
       style={{
         borderColor: "var(--color-rule)",
         width: "14rem",
-        background: "linear-gradient(180deg, #121823 0%, #0c1017 100%)",
+        background: "linear-gradient(180deg, #19202b 0%, #0e131b 100%)",
       }}
     >
-      <div className="px-1.5 py-3 mb-2 flex items-center gap-2.5">
-        <span
-          className="shrink-0 rounded-md flex items-center justify-center"
-          style={{
-            width: 28,
-            height: 28,
-            background: "linear-gradient(145deg, #3ee0a6, #1d9b74)",
-            boxShadow: "0 2px 10px rgba(52,211,153,0.35)",
-            color: "#042018",
-            fontWeight: 700,
-            fontSize: "0.9375rem",
-            fontFamily: "var(--font-display)",
-          }}
-        >
-          V
-        </span>
-        <span>
-          <span className="display block" style={{ fontSize: "1.0625rem", lineHeight: 1.1 }}>
-            Vouch
-          </span>
-          <span className="rule-label" style={{ fontSize: "0.5625rem" }}>
-            vouched pipeline
-          </span>
-        </span>
+      <div className="px-1 py-3.5 mb-2">
+        <Logo size={30} tagline="forged pipeline" />
       </div>
 
       {items.map((item) => {
@@ -89,13 +68,13 @@ export function Rail({
             className="flex items-center gap-2.5 px-2 py-2 rounded-md text-left relative"
             style={{
               background: isActive
-                ? "linear-gradient(90deg, var(--color-vine-soft), transparent)"
+                ? "linear-gradient(90deg, var(--color-ember-soft), transparent)"
                 : "transparent",
-              boxShadow: isActive ? "inset 2px 0 0 var(--color-vine)" : undefined,
+              boxShadow: isActive ? "inset 2px 0 0 var(--color-ember)" : undefined,
               color: locked
                 ? "var(--color-ink-faint)"
                 : isActive
-                  ? "var(--color-vine)"
+                  ? "var(--color-ember)"
                   : "var(--color-ink-soft)",
               fontSize: "0.8125rem",
               fontWeight: isActive ? 600 : 400,

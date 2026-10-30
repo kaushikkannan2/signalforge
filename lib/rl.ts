@@ -94,9 +94,9 @@ interface BanditState {
   decisions: { context: ContextId; arm: ArmId; sampled: Record<ArmId, number>; at: string }[];
 }
 
-const g = globalThis as unknown as { __vouchBandit?: BanditState };
+const g = globalThis as unknown as { __sfBandit?: BanditState };
 const state: BanditState =
-  g.__vouchBandit ?? (g.__vouchBandit = { posteriors: new Map(), rewards: [], decisions: [] });
+  g.__sfBandit ?? (g.__sfBandit = { posteriors: new Map(), rewards: [], decisions: [] });
 
 const key = (context: ContextId, arm: ArmId) => `${context}::${arm}`;
 
@@ -348,9 +348,9 @@ function promptFor(message: OutreachMessage): string {
   ].join("\n");
 }
 
-const originals = globalThis as unknown as { __vouchOriginals?: Map<string, string> };
+const originals = globalThis as unknown as { __sfOriginals?: Map<string, string> };
 const originalBodies: Map<string, string> =
-  originals.__vouchOriginals ?? (originals.__vouchOriginals = new Map());
+  originals.__sfOriginals ?? (originals.__sfOriginals = new Map());
 
 /** Called at draft time so an edit has something to be compared against. */
 export function recordOriginal(messageId: string, body: string) {

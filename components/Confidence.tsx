@@ -165,8 +165,10 @@ export function ScoreRing({
  */
 export function ConfidenceDial({ value, size = 92 }: { value: number; size?: number }) {
   const pct = Math.round(value * 100);
+  // Three bands, deliberately not a continuous ramp: an operator should read
+  // "solid / thin / don't trust this" at a glance, not interpolate a hue.
   const color =
-    value >= 0.75 ? "var(--color-tier-a)" : value >= 0.5 ? "var(--color-tier-b)" : "var(--color-alarm)";
+    value >= 0.75 ? "var(--color-tempered)" : value >= 0.5 ? "var(--color-molten)" : "var(--color-quench)";
   const stroke = 6;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;

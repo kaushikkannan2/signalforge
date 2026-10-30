@@ -166,5 +166,5 @@ class Graph {
 
 // Module-global singleton. Next.js hot-reloads modules in dev, so we stash it
 // on globalThis to survive recompiles and keep demo state alive.
-const g = globalThis as unknown as { __vouchGraph?: Graph };
-export const graph: Graph = g.__vouchGraph ?? (g.__vouchGraph = new Graph());
+const g = globalThis as unknown as { __sfGraph?: Graph };
+export const graph: Graph = g.__sfGraph ?? (g.__sfGraph = new Graph());

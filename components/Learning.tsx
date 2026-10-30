@@ -74,8 +74,8 @@ function betaPdf(x: number, a: number, b: number): number {
 }
 
 const ARM_COLOR: Record<string, string> = {
-  "signal-led": "var(--color-vine)",
-  "peer-proof": "var(--color-person)",
+  "signal-led": "var(--color-ember)",
+  "peer-proof": "var(--color-steel-blue)",
 };
 const armColor = (arm: string) => ARM_COLOR[arm.split("|")[0]] ?? "var(--color-bridge)";
 

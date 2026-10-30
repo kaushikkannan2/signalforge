@@ -12,8 +12,8 @@ import type { ThinkingStep } from "./types";
 
 type Listener = (step: ThinkingStep) => void;
 
-const bus = globalThis as unknown as { __vouchListeners?: Set<Listener> };
-const listeners: Set<Listener> = bus.__vouchListeners ?? (bus.__vouchListeners = new Set());
+const bus = globalThis as unknown as { __sfListeners?: Set<Listener> };
+const listeners: Set<Listener> = bus.__sfListeners ?? (bus.__sfListeners = new Set());
 
 export function emit(
   runId: string,

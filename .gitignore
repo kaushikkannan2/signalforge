@@ -51,3 +51,8 @@ next-env.d.ts
 
 # Re-added once the GitHub token carries the `workflow` scope.
 .github/workflows/security.yml
+
+# Real people's names and inferred email addresses. Never commit — publishing
+# inferred contact details for real individuals to a public repo is a privacy
+# problem regardless of how the addresses were derived.
+/data/

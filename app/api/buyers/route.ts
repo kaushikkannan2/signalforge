@@ -10,7 +10,13 @@ import { id as mkId } from "@/lib/ids";
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
-  const { enrich = true } = (await req.json().catch(() => ({}))) as { enrich?: boolean };
+  const { enrich = true, discover } = (await req.json().catch(() => ({}))) as {
+    enrich?: boolean;
+    discover?: boolean;
+  };
+  // When buyers already exist (a loaded scenario), the default is to enrich
+  // what is there rather than spend search calls rediscovering it.
+  const shouldDiscover = discover ?? db.people.length === 0;
   const icp = activeIcp();
   if (!icp || icp.status !== "approved") {
     return NextResponse.json({ error: "Approve an ICP first." }, { status: 409 });
@@ -20,13 +26,27 @@ export async function POST(req: NextRequest) {
   try {
     // Our own team goes in first so warm-intro paths have an origin to search from.
     seedInternalTeam(INTERNAL_TEAM);
-    const people = await discoverBuyers(icp, runId);
-    for (const p of people) ensureLead(p.id, icp.id);
 
-    const enriched = enrich ? await enrichAll(runId, people.map((p) => p.id)) : [];
+    const discovered = shouldDiscover ? await discoverBuyers(icp, runId) : [];
+    for (const p of discovered) ensureLead(p.id, icp.id);
+
+    // Target: newly discovered people, or every unenriched person already in
+    // the store. Enriching the highest-fit accounts first matters once the
+    // credit gate is in play — the gate should stop the LEAST valuable work.
+    const targets = (discovered.length ? discovered : db.people.filter((p) => !p.enrichment.enrichedAt))
+      .slice()
+      .sort((a, b) => {
+        const fa = db.companies.find((c) => c.id === a.companyId);
+        const fb = db.companies.find((c) => c.id === b.companyId);
+        return (fb?.fit.total ?? 0) - (fa?.fit.total ?? 0);
+      });
+
+    const enriched = enrich ? await enrichAll(runId, targets.map((p) => p.id)) : [];
 
     return NextResponse.json({
       runId,
+      discovered: discovered.length,
+      targeted: targets.length,
       people: db.people,
       enrichedCount: enriched.length,
       leads: db.leads,

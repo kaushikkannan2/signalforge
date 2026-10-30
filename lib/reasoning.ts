@@ -24,6 +24,9 @@ export interface ReasoningResult {
   }[];
   nodeIdsTouched: string[];
   tookMs: number;
+  /** Candidate paths walked, so a bounded result is visibly bounded. */
+  examined?: number;
+  truncated?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -48,15 +51,21 @@ RETURN us.fullName AS introducer,
 ORDER BY acct.fit DESC
 LIMIT 10`.trim();
 
-export function warmIntroPaths(): ReasoningResult {
+export function warmIntroPaths(limit = 40): ReasoningResult {
   const t0 = Date.now();
   const internal = graph
     .byLabel("Person")
     .filter((n) => n.props.isInternal === true);
   const findings: ReasoningResult["findings"] = [];
   const touched = new Set<string>();
+  // Bounded on purpose. Former-employer overlap is deliberately dense so warm
+  // paths exist at all, which means an unbounded walk is effectively quadratic
+  // in the number of people sharing a bridge. We take the best `limit` paths
+  // and report the bound rather than silently truncating.
+  let examined = 0;
+  const EXAMINE_CAP = 20000;
 
-  for (const us of internal) {
+  outer: for (const us of internal) {
     for (const { node: bridge } of graph.neighbours(us.id, [
       "previously_employed_at",
       "studied_at",
@@ -65,6 +74,7 @@ export function warmIntroPaths(): ReasoningResult {
         "previously_employed_at",
         "studied_at",
       ])) {
+        if (++examined > EXAMINE_CAP) break outer;
         if (target.id === us.id || target.label !== "Person") continue;
         const employer = graph
           .neighbours(target.id, ["works_at"])
@@ -91,9 +101,11 @@ export function warmIntroPaths(): ReasoningResult {
     queryName: "warm_intro_paths",
     question: "Which target buyers can we reach through a shared employer or school?",
     cypher: WARM_INTRO_CYPHER,
-    findings: dedupe(findings).sort((a, b) => b.strength - a.strength).slice(0, 6),
-    nodeIdsTouched: [...touched],
+    findings: dedupe(findings).sort((a, b) => b.strength - a.strength).slice(0, limit),
+    nodeIdsTouched: [...touched].slice(0, 400),
     tookMs: Date.now() - t0,
+    examined,
+    truncated: examined > EXAMINE_CAP,
   };
 }
 
@@ -156,8 +168,8 @@ export function activeBuyingCycles(): ReasoningResult {
     queryName: "active_buying_cycles",
     question: "Which accounts show hiring or tooling signals that imply an open budget?",
     cypher: BUYING_CYCLE_CYPHER,
-    findings: findings.sort((a, b) => b.strength - a.strength),
-    nodeIdsTouched: [...touched],
+    findings: findings.sort((a, b) => b.strength - a.strength).slice(0, 40),
+    nodeIdsTouched: [...touched].slice(0, 400),
     tookMs: Date.now() - t0,
   };
 }
@@ -210,8 +222,8 @@ export function displacementOpportunities(): ReasoningResult {
     queryName: "competitor_displacement",
     question: "Which accounts are paying a competitor and currently able to switch?",
     cypher: DISPLACEMENT_CYPHER,
-    findings: findings.sort((a, b) => b.strength - a.strength),
-    nodeIdsTouched: [...touched],
+    findings: findings.sort((a, b) => b.strength - a.strength).slice(0, 40),
+    nodeIdsTouched: [...touched].slice(0, 400),
     tookMs: Date.now() - t0,
   };
 }

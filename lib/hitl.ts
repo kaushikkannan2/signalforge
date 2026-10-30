@@ -19,6 +19,7 @@ import { meter } from "./meter";
 import { id as mkId, now } from "./ids";
 import type { ApprovalRecord, DispatchRecord, LeadStage, OutreachMessage } from "./types";
 import { advanceLead } from "./pipeline";
+import { assertSafeRecipient, DispatchSafetyError } from "./privacy";
 
 export class GateViolationError extends Error {
   constructor(message: string) {
@@ -144,6 +145,22 @@ export async function dispatch(
     throw new GateViolationError("No deliverable address — enrich the contact first.");
   }
 
+  // Second, independent guard. The HITL gate asks "did a human approve this?";
+  // this asks "is it safe to actually deliver?". A real prospect receiving
+  // unsolicited mail because of a demo misclick is a harm no approval record
+  // makes acceptable.
+  let safeTo: string;
+  try {
+    safeTo = assertSafeRecipient(to, person?.enrichment.email);
+  } catch (err) {
+    if (err instanceof DispatchSafetyError) {
+      emit(opts.runId, "Dispatch", "gate", "Send blocked by recipient safety guard", {
+        detail: err.message,
+      });
+    }
+    throw err;
+  }
+
   let record: DispatchRecord;
 
   if (message.channel === "email" && process.env.RESEND_API_KEY) {
@@ -151,7 +168,7 @@ export async function dispatch(
       const resend = new Resend(process.env.RESEND_API_KEY);
       const { data, error } = await resend.emails.send({
         from: "Grapevine <onboarding@resend.dev>",
-        to: [to],
+        to: [safeTo],
         subject: message.subject ?? `Following up — ${company?.name ?? ""}`,
         text: `${message.body}\n\n—\nSent via Grapevine after human approval ${approval.id}.${
           opts.redirectTo ? `\nDemo redirect: intended recipient was ${person?.enrichment.email ?? "unresolved"}.` : ""
@@ -163,7 +180,7 @@ export async function dispatch(
         messageId,
         approvalId: approval.id,
         channel: message.channel,
-        to,
+        to: safeTo,
         provider: "resend",
         providerMessageId: data?.id,
         status: "sent",
@@ -175,7 +192,7 @@ export async function dispatch(
         messageId,
         approvalId: approval.id,
         channel: message.channel,
-        to,
+        to: safeTo,
         provider: "resend",
         status: "failed",
         error: err instanceof Error ? err.message : String(err),
@@ -191,7 +208,7 @@ export async function dispatch(
       messageId,
       approvalId: approval.id,
       channel: message.channel,
-      to,
+      to: safeTo,
       provider: message.channel === "linkedin" ? "linkedin-queue" : "none",
       status: "simulated",
       error:
@@ -230,7 +247,7 @@ export async function dispatch(
     opts.runId,
     "Dispatch",
     record.status === "failed" ? "error" : "validation",
-    `Touch ${message.touch} ${record.status} → ${to}`,
+    `Touch ${message.touch} ${record.status} → ${safeTo}`,
     {
       detail: `${record.provider}${record.providerMessageId ? ` · id ${record.providerMessageId}` : ""}${
         record.error ? ` · ${record.error}` : ""

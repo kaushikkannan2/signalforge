@@ -3,10 +3,13 @@ import { db } from "@/lib/db";
 import { graph } from "@/lib/graph";
 import { dataMode, tavilyConfigured } from "@/lib/providers/tavily";
 import { totalCostUsd, usageLedger } from "@/lib/providers/anthropic";
+import { autoHydrate } from "@/lib/persist";
 
 
 /** Everything the dashboard needs in one round trip. */
 export async function GET() {
+  // Rehydrate a prepared demo dataset if the process restarted.
+  await autoHydrate();
   return NextResponse.json({
     mode: dataMode(),
     providers: {

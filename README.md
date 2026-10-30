@@ -21,7 +21,12 @@ in a prompt — the "where" column is the file you can read to check.
 | **Nothing is dispatched without human approval** | `dispatch()` is the only path out of the system. Before touching a transport it looks up an `ApprovalRecord`; with none, or with a rejection, it throws `GateViolationError`. The UI button state is a convenience — the server refuses independently. | `lib/hitl.ts` |
 | **Enrichment cannot outrun its credits** | `assertCredits()` runs *before* the vendor call, not after. When the balance is short it throws, the batch halts cleanly rather than half-processing, and the gate decision is written to the audit feed. | `lib/meter.ts`, `lib/enrichment.ts` |
 
-A fourth, quieter one: **an inferred email never renders as a verified one.**
+A fourth: **a demo cannot mail a real prospect by accident.** `assertSafeRecipient()`
+sits beneath the approval gate and refuses any recipient other than `DEMO_INBOX`
+unless `GRAPEVINE_ALLOW_REAL_SEND=true` is set deliberately — so the safe
+behaviour is what you get by forgetting to configure something.
+
+A fifth, quieter one: **an inferred email never renders as a verified one.**
 `hunter_verified`, `mx_validated_pattern` and `pattern_inferred` are distinct
 methods with distinct confidence ceilings, and the UI shows which produced any
 given address. MX validation is a real DNS lookup — it proves the *domain*
@@ -122,6 +127,36 @@ Neo4j is a write-through mirror; the three reasoning queries are written twice
 | Metering | Flexprice `/v1/events` + local enforcement ledger |
 | Security | Snyk SCA + SAST + secret-hygiene job in CI |
 | Frontend | Next.js 16, React 19, Tailwind 4 |
+
+### Datasets and scale
+
+Three loadable datasets, all via the ⌘K palette:
+
+| Dataset | Shape | Purpose |
+|---|---|---|
+| Demo scenario | 7 accounts, 8 buyers | Hand-authored; every record proves one capability (see `DEMO-GUIDE.md`) |
+| Scale | ~307 accounts, ~728 buyers, 2,133 nodes | Production-shaped; loads in ~50ms |
+| Stress | ~1,007 accounts, ~2,376 buyers, 6,802 nodes / 9,424 edges | Loads in ~420ms; graph queries stay at 2–9ms |
+
+The generator is deterministic (seeded PRNG), so a rehearsal and a recording
+produce identical data. Distributions are deliberately shaped rather than
+uniform — fit scores form a bell curve, signals follow a power law, and the
+former-employer pool is small enough that genuine two-hop warm-introduction
+paths exist. A uniformly random graph has almost none, which would make the
+multi-hop queries look better than they are.
+
+**Everything generated is synthetic.** Names are composed from word lists and
+all domains use reserved TLDs (`.example` / `.invalid` / `.test`), so no record
+can collide with a real organisation or person. `data/` is gitignored.
+
+### Privacy
+
+`GRAPEVINE_PRIVACY_MODE=mask` renders `Dana Okafor` as `Dana O.` and
+`dana.okafor@…` as `d••••••••@…`, and strips identifying paths from evidence
+URLs while keeping the host — because the host is the evidence. Masking is a
+presentation boundary; the pipeline still operates on real values, so a masked
+run is a real run. Use it for any live demo against real data: a recorded demo
+is a publication, and an inferred address may also be wrong.
 
 ### Data modes
 

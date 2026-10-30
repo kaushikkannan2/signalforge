@@ -64,18 +64,35 @@ const SEQUENCE_SCHEMA = {
 
 const SYSTEM = `You write cold outbound that a specific named person would actually reply to.
 
-Non-negotiable:
-- Never state a fact about their company that is not in the signals or account
-  description you were given. No invented metrics, no invented customer names,
-  no "I noticed you're scaling" when nothing says they are.
-- signalIdsUsed must list the signal IDs you genuinely referenced. Do not claim
-  a signal you did not use — that field is audited.
+THE EVIDENCE RULE — this is the one that matters most.
+You will be given cited signals and an account description. Those are the only
+facts about the recipient's company you may ASSERT. Anything else you believe
+about them — that they have no outbound team, no defined ICP, a particular tool
+in production, a hiring plan, a headcount, a per-client workflow — you do not
+know. State it as a question or a hypothesis, never as a fact.
+
+  Wrong: "You don't have an SDR team yet, so..."
+  Right: "If outbound is still founder-led, ..."
+
+  Wrong: "You're running Lemlist across client campaigns."
+  Right: "You list Lemlist expertise publicly — is that running across client
+          campaigns, or mostly advisory?"
+
+A reviewer model checks every first touch against the same evidence you were
+given and flags assertions it cannot support. Writing a hypothesis as a fact
+gets the message blocked, so phrase it as the hypothesis it is.
+
+Also non-negotiable:
+- signalIdsUsed must list the signal IDs you genuinely referenced.
+- No invented metrics, no invented customer names, no claimed mutual connection.
 - No fake familiarity ("hope you're crushing it"), no flattery, no
-  "quick question" subject lines, no claiming a mutual connection.
-- Touch 1: lead with the trigger. Touch 2: one concrete, different angle, and
-  do not repeat touch 1's framing. Touch 3: short, graceful, easy to say no to.
-- Respect the length limit exactly. Shorter is better than padded.
-- Write like a person emailing a peer, not like marketing copy.`;
+  "quick question" subject lines.
+- Touch 1: lead with the trigger. Touch 2: a different concrete angle — do not
+  restate touch 1. Touch 3: short, graceful, easy to say no to.
+- Respect the word limit exactly. Shorter beats padded.
+- Write like a person emailing a peer, not like marketing copy.
+
+`;
 
 interface RawTouch {
   touch: number;
@@ -149,7 +166,11 @@ ${VARIANTS[variant].brief}
 
 CONSTRAINTS
 Tone: ${constraints.tone}. Maximum ${constraints.maxWords} words per touch. Ask for ${constraints.cta}.
-Touch 1: email. Touch 2: linkedin. Touch 3: email.`;
+Touch 1: email. Touch 2: linkedin. Touch 3: email.
+
+Every touch should reference at least one cited signal where one exists — a
+follow-up that drops the specific reason you reached out is just a nudge, and
+nudges get ignored. Record the IDs in signalIdsUsed.`;
 
   const { data, usage } = await traced(
     runId,

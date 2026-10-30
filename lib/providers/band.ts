@@ -164,9 +164,9 @@ export async function say(
     ? targets.map((t) => ({ handle: `${HANDLE_PREFIX}/${t.handle}` }))
     : [{ handle: HANDLE_PREFIX }];
 
-  const text = targets.length
-    ? `${targets.map((t) => `@${t.handle}`).join(" ")} ${body}`
-    : body;
+  // Band renders the mention objects itself. Prepending "@handle" text here
+  // made every name appear twice in the room transcript.
+  const text = body;
 
   const res = await call(creds, `/chats/${room}/messages`, {
     method: "POST",

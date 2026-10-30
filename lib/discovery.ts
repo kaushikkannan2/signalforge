@@ -168,6 +168,11 @@ Hard rules:
   point at results that genuinely mention that company. Never guess an index.
 - Do not output a company that is itself a vendor of the product being sold,
   a directory, a news outlet, a job board, or an aggregator.
+- Agencies and consultancies that SELL the same outcome as the product being
+  sold are competitors, not prospects. An outbound or demand-generation agency
+  is only a prospect if the product would be infrastructure it buys rather
+  than a service it competes with — and if you include one, say which in the
+  description so the operator can judge. When in doubt, exclude it.
 - Set disqualified=true and name the ICP negative signal when a result shows a
   disqualifying fact. Disqualified accounts are kept, not hidden — the operator
   needs to see what was filtered and why.

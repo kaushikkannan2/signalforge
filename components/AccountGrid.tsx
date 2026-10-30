@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Citations, TierBadge } from "./Confidence";
 import type { Company, Signal } from "@/lib/types";
 
@@ -11,50 +11,141 @@ import type { Company, Signal } from "@/lib/types";
  * and disqualified accounts shown struck-through rather than hidden — the
  * operator needs to see what was filtered out and why.
  */
+type SortKey = "fit" | "name" | "signals" | "headcount";
+
 export function AccountGrid({
   companies,
   signals,
   selectedId,
   onSelect,
+  onFocusGraph,
 }: {
   companies: Company[];
   signals: Signal[];
   selectedId?: string;
   onSelect?: (id: string) => void;
+  onFocusGraph?: (id: string) => void;
 }) {
   const [showDisqualified, setShowDisqualified] = useState(true);
+  const [query, setQuery] = useState("");
+  const [tier, setTier] = useState<"all" | "A" | "B" | "C">("all");
+  const [onlySignals, setOnlySignals] = useState(false);
+  const [sort, setSort] = useState<SortKey>("fit");
+  const [dense, setDense] = useState(true);
+  const [page, setPage] = useState(50);
 
-  const sorted = companies
-    .slice()
-    .sort((a, b) => Number(a.disqualified) - Number(b.disqualified) || b.fit.total - a.fit.total);
-  const visible = showDisqualified ? sorted : sorted.filter((c) => !c.disqualified);
+  const signalCount = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const s of signals) m.set(s.companyId, (m.get(s.companyId) ?? 0) + 1);
+    return m;
+  }, [signals]);
+
   const dqCount = companies.filter((c) => c.disqualified).length;
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    let rows = companies.filter((c) => {
+      if (!showDisqualified && c.disqualified) return false;
+      if (tier !== "all" && c.fit.tier !== tier) return false;
+      if (onlySignals && !(signalCount.get(c.id) ?? 0)) return false;
+      if (
+        q &&
+        !(
+          c.name.toLowerCase().includes(q) ||
+          c.domain.toLowerCase().includes(q) ||
+          c.industry.toLowerCase().includes(q) ||
+          (c.hqLocation ?? "").toLowerCase().includes(q)
+        )
+      )
+        return false;
+      return true;
+    });
+    rows = rows.sort((a, b) => {
+      // Disqualified rows always sink, whatever the sort — they are reference,
+      // not workable pipeline.
+      const dq = Number(a.disqualified) - Number(b.disqualified);
+      if (dq !== 0) return dq;
+      if (sort === "name") return a.name.localeCompare(b.name);
+      if (sort === "signals") return (signalCount.get(b.id) ?? 0) - (signalCount.get(a.id) ?? 0);
+      if (sort === "headcount") return (b.headcount ?? -1) - (a.headcount ?? -1);
+      return b.fit.total - a.fit.total;
+    });
+    return rows;
+  }, [companies, query, tier, onlySignals, showDisqualified, sort, signalCount]);
+
+  const visible = filtered.slice(0, page);
+  const pad = dense ? "py-1.5" : "py-3";
 
   return (
     <section className="border rounded-lg bg-white" style={{ borderColor: "var(--color-rule)" }}>
-      <header
-        className="px-4 py-3 border-b flex items-center justify-between gap-4 flex-wrap"
-        style={{ borderColor: "var(--color-rule)" }}
-      >
-        <div>
-          <h2 className="display" style={{ fontSize: "1.25rem" }}>
-            Discovered accounts
-          </h2>
-          <p className="mt-0.5" style={{ fontSize: "0.8125rem", color: "var(--color-ink-soft)" }}>
-            {companies.filter((c) => !c.disqualified).length} qualified ·{" "}
-            {companies.filter((c) => c.fit.tier === "A").length} Tier A · {dqCount} disqualified.
-            Every row carries its sources; a row with none cannot exist.
-          </p>
+      <header className="px-4 py-3 border-b" style={{ borderColor: "var(--color-rule)" }}>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="display" style={{ fontSize: "1.25rem" }}>
+              Discovered accounts
+            </h2>
+            <p className="mt-0.5" style={{ fontSize: "0.8125rem", color: "var(--color-ink-soft)" }}>
+              {companies.filter((c) => !c.disqualified).length} qualified ·{" "}
+              {companies.filter((c) => c.fit.tier === "A").length} Tier A · {dqCount} disqualified.
+              Every row carries its sources; a row with none cannot exist.
+            </p>
+          </div>
+          <span className="mono grid-surface shrink-0" style={{ color: "var(--color-ink-faint)" }}>
+            {filtered.length === companies.length
+              ? `${companies.length} rows`
+              : `${filtered.length} of ${companies.length} rows`}
+          </span>
         </div>
-        {dqCount > 0 && (
-          <button
-            onClick={() => setShowDisqualified((v) => !v)}
-            className="mono px-2.5 py-1.5 rounded border shrink-0"
-            style={{ borderColor: "var(--color-rule-strong)", color: "var(--color-ink-soft)" }}
+
+        <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+          <input
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(50);
+            }}
+            placeholder="Filter by name, domain, industry or location…"
+            className="px-2.5 py-1.5 rounded border"
+            style={{ borderColor: "var(--color-rule-strong)", fontSize: "0.8125rem", minWidth: "17rem" }}
+          />
+
+          <Segmented
+            value={tier}
+            onChange={(v) => {
+              setTier(v as typeof tier);
+              setPage(50);
+            }}
+            options={[
+              { value: "all", label: "All tiers" },
+              { value: "A", label: "A" },
+              { value: "B", label: "B" },
+              { value: "C", label: "C" },
+            ]}
+          />
+
+          <Toggle active={onlySignals} onClick={() => setOnlySignals((v) => !v)} label="has signal" />
+          {dqCount > 0 && (
+            <Toggle
+              active={showDisqualified}
+              onClick={() => setShowDisqualified((v) => !v)}
+              label={`disqualified (${dqCount})`}
+            />
+          )}
+
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortKey)}
+            className="px-2 py-1.5 rounded border mono"
+            style={{ borderColor: "var(--color-rule-strong)", fontSize: "0.75rem" }}
           >
-            {showDisqualified ? "hide" : "show"} disqualified ({dqCount})
-          </button>
-        )}
+            <option value="fit">sort: fit</option>
+            <option value="signals">sort: signals</option>
+            <option value="headcount">sort: headcount</option>
+            <option value="name">sort: name</option>
+          </select>
+
+          <Toggle active={dense} onClick={() => setDense((v) => !v)} label="dense" />
+        </div>
       </header>
 
       <div className="scroll-x">
@@ -87,19 +178,19 @@ export function AccountGrid({
                 <tr
                   key={c.id}
                   onClick={() => onSelect?.(c.id)}
-                  className="border-b cursor-pointer hover:bg-[var(--color-paper)]"
+                  className={`border-b cursor-pointer hover:bg-[var(--color-paper)]`}
                   style={{
                     borderColor: "var(--color-rule)",
                     background: selectedId === c.id ? "var(--color-vine-soft)" : undefined,
                     opacity: c.disqualified ? 0.55 : 1,
                   }}
                 >
-                  <td className="px-3 py-2 text-right align-top">
+                  <td className={`px-3 ${pad} text-right align-top`}>
                     <span className="mono font-semibold" title={arithmetic}>
                       {c.fit.total}
                     </span>
                   </td>
-                  <td className="px-2 py-2 align-top">
+                  <td className={`px-2 ${pad} align-top`}>
                     <TierBadge tier={c.fit.tier} />
                   </td>
                   <td className="px-2 py-2 align-top">
@@ -167,8 +258,27 @@ export function AccountGrid({
                       </span>
                     )}
                   </td>
-                  <td className="px-3 py-2 align-top">
-                    <Citations evidence={c.evidence} />
+                  <td className={`px-3 ${pad} align-top`}>
+                    <div className="flex items-center gap-2">
+                      <Citations evidence={c.evidence} />
+                      {onFocusGraph && (
+                        <button
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            onFocusGraph(c.id);
+                          }}
+                          title="Show this account's neighbourhood in the graph"
+                          className="mono px-1.5 py-0.5 rounded border shrink-0"
+                          style={{
+                            borderColor: "var(--color-rule-strong)",
+                            color: "var(--color-ink-faint)",
+                            fontSize: "0.625rem",
+                          }}
+                        >
+                          ⬡
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
@@ -176,13 +286,42 @@ export function AccountGrid({
             {!visible.length && (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center" style={{ color: "var(--color-ink-faint)" }}>
-                  No accounts yet. Approve an ICP and run discovery.
+                  {companies.length
+                    ? "No rows match these filters."
+                    : "No accounts yet. Approve an ICP and run discovery."}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {filtered.length > visible.length && (
+        <footer
+          className="px-4 py-2.5 border-t flex items-center justify-between gap-3"
+          style={{ borderColor: "var(--color-rule)" }}
+        >
+          <span className="mono" style={{ fontSize: "0.6875rem", color: "var(--color-ink-faint)" }}>
+            Showing {visible.length} of {filtered.length}
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage((p) => p + 100)}
+              className="px-2.5 py-1 rounded border"
+              style={{ borderColor: "var(--color-rule-strong)", fontSize: "0.8125rem" }}
+            >
+              Load 100 more
+            </button>
+            <button
+              onClick={() => setPage(filtered.length)}
+              className="px-2.5 py-1 rounded border"
+              style={{ borderColor: "var(--color-rule-strong)", fontSize: "0.8125rem" }}
+            >
+              Show all
+            </button>
+          </div>
+        </footer>
+      )}
     </section>
   );
 }
@@ -226,5 +365,54 @@ export function SignalFeed({ signals, companies }: { signals: Signal[]; companie
           ))}
       </ul>
     </section>
+  );
+}
+
+
+function Segmented({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div className="flex rounded border overflow-hidden" style={{ borderColor: "var(--color-rule-strong)" }}>
+      {options.map((o) => (
+        <button
+          key={o.value}
+          onClick={() => onChange(o.value)}
+          className="px-2 py-1.5"
+          style={{
+            background: value === o.value ? "var(--color-vine-soft)" : "transparent",
+            color: value === o.value ? "var(--color-vine)" : "var(--color-ink-soft)",
+            fontSize: "0.75rem",
+            fontWeight: value === o.value ? 600 : 400,
+          }}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Toggle({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className="px-2.5 py-1.5 rounded border mono"
+      style={{
+        borderColor: active ? "var(--color-vine)" : "var(--color-rule-strong)",
+        background: active ? "var(--color-vine-soft)" : "transparent",
+        color: active ? "var(--color-vine)" : "var(--color-ink-faint)",
+        fontSize: "0.75rem",
+      }}
+    >
+      {active ? "✓ " : ""}
+      {label}
+    </button>
   );
 }

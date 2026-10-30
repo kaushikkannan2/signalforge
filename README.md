@@ -187,6 +187,24 @@ contact data and sends mail on a human's behalf, so a high-severity finding on
 
 ---
 
+## The learning layer
+
+One component genuinely learns, one dataset is being collected for training,
+and three components do not learn — and the UI says which is which.
+
+| Component | Learns | Method |
+|---|---|---|
+| Outreach variant selection | **yes** | Contextual multi-armed bandit, Beta-Bernoulli Thompson sampling. Arms = variant × channel; context = seniority band × signal presence; reward = approval (1), reply (2), meeting (3), rejection (0). Exploration comes from posterior sampling, not a tuned epsilon. |
+| Copy quality preferences | no | Every human edit at the approval gate is a `(prompt, chosen, rejected)` triple in DPO format, exported as JSONL. **Collected, not trained on** — a dataset is not a trained policy. |
+| Fit score weights | no | Hand-set and decomposed on screen. Could be fit by logistic regression against closed-won outcomes; n is far too small to fit anything honest. |
+| ICP inference | no | Frozen model, structured output. Confidence is the model's own calibrated estimate, not a learned parameter. |
+| Reviewer thresholds | no | Deterministic rules. |
+
+The approval gate does double duty: it is the safety mechanism *and* the reward
+signal. Replies and booked meetings arrive as delayed reward with credit
+assigned back to the message that earned them, which is the part usually
+missing from systems that claim a feedback loop.
+
 ## Why this is a business
 
 **The pain.** A seed-to-Series-B B2B company runs GTM across disconnected

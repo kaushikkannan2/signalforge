@@ -19,6 +19,7 @@ import { meter } from "./meter";
 import { id as mkId, now } from "./ids";
 import type { ApprovalRecord, DispatchRecord, LeadStage, OutreachMessage } from "./types";
 import { advanceLead } from "./pipeline";
+import { recordReward } from "./rl";
 import { assertSafeRecipient, DispatchSafetyError } from "./privacy";
 
 export class GateViolationError extends Error {
@@ -78,6 +79,12 @@ export function decide(
   }
 
   const person = findPerson(message.personId);
+
+  // The gate is the reward signal. A human reading copy and approving,
+  // editing or rejecting it is the cleanest preference label this system can
+  // get, so it updates the policy immediately rather than waiting for a reply.
+  recordReward(message, person, input.decision === "rejected" ? "rejection" : "approval", runId);
+
   emit(
     runId,
     "HITL gate",

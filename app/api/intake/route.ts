@@ -46,15 +46,20 @@ export async function POST(req: NextRequest) {
 
   try {
     const icp = await inferIcp(intake, runId);
-    // Expansion runs after the core ICP so the adjacent segments are proposed
-    // relative to something concrete rather than to the raw description.
-    const expansions = await expandIcp(icp, intake, runId).catch((err) => {
+
+    // Expansion deliberately does NOT block this response. It takes about as
+    // long as the inference itself, and the operator has something to read and
+    // approve the moment the core profile exists — so making them wait for
+    // adjacent segments they may dismiss anyway is latency spent on nothing.
+    // It runs on, and the client picks it up from /api/icp.
+    void expandIcp(icp, intake, runId).catch((err) => {
       emit(runId, "ICP expansion", "error", "Expansion failed — core ICP is unaffected", {
         detail: err instanceof Error ? err.message : String(err),
       });
       return [];
     });
-    return NextResponse.json({ runId, intake, icp, expansions });
+
+    return NextResponse.json({ runId, intake, icp, expansions: [], expansionPending: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     emit(runId, "ICP inference", "error", "ICP inference failed", { detail: message });

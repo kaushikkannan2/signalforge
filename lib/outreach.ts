@@ -17,6 +17,7 @@ import { db, findCompany, findPerson, signalsFor } from "./db";
 import { MODELS } from "./models";
 import { id as mkId, now } from "./ids";
 import type { Channel, IcpDefinition, OutreachMessage } from "./types";
+import { recordOriginal, selectVariant } from "./rl";
 
 export const VARIANTS = {
   signal_led: {
@@ -108,7 +109,7 @@ export async function draftSequence(
   personId: string,
   icp: IcpDefinition,
   runId: string,
-  variant: VariantKey = "signal_led",
+  variant?: VariantKey,
 ): Promise<OutreachMessage[]> {
   const person = findPerson(personId);
   if (!person) throw new Error(`Person ${personId} not found`);
@@ -116,6 +117,15 @@ export async function draftSequence(
   if (!company) throw new Error(`Company ${person.companyId} not found`);
 
   const signals = signalsFor(company.id);
+
+  // Variant choice is a POLICY DECISION, not a caller preference. The bandit
+  // samples each arm's posterior for this buyer's context and takes the argmax,
+  // so early runs explore and later runs exploit — without a hand-tuned
+  // exploration rate. An explicit `variant` argument overrides it, which is
+  // what the A/B comparison view uses to force a head-to-head.
+  const policy = selectVariant(person, signals.length > 0, "email", runId);
+  const chosenKey: VariantKey =
+    variant ?? (policy.variant === "peer-proof" ? "peer_proof" : "signal_led");
   const persona =
     icp.personas.value.find((p) => p.title === person.matchedPersona) ?? icp.personas.value[0];
 
@@ -161,8 +171,8 @@ ${
 WHAT WE SELL
 ${db.intakes.find((i) => i.id === icp.intakeId)?.description ?? ""}
 
-VARIANT: ${VARIANTS[variant].label}
-${VARIANTS[variant].brief}
+VARIANT: ${VARIANTS[chosenKey].label}
+${VARIANTS[chosenKey].brief}
 
 CONSTRAINTS
 Tone: ${constraints.tone}. Maximum ${constraints.maxWords} words per touch. Ask for ${constraints.cta}.
@@ -176,7 +186,7 @@ nudges get ignored. Record the IDs in signalIdsUsed.`;
     runId,
     "Outreach",
     "reasoning",
-    `Drafting ${VARIANTS[variant].label} sequence for ${person.fullName}`,
+    `Drafting ${VARIANTS[chosenKey].label} sequence for ${person.fullName}`,
     () =>
       structured<{ touches: RawTouch[] }>(prompt, {
         system: SYSTEM,
@@ -207,7 +217,7 @@ nudges get ignored. Record the IDs in signalIdsUsed.`;
         touch: t.touch,
         subject: t.channel === "email" ? t.subject : undefined,
         body: t.body,
-        variant: VARIANTS[variant].label,
+        variant: VARIANTS[chosenKey].label,
         signalsUsed: used,
         valueProp: t.valueProp,
         toneConstraints: { ...constraints, cta: t.cta || constraints.cta },
@@ -218,6 +228,9 @@ nudges get ignored. Record the IDs in signalIdsUsed.`;
     });
 
   db.messages.push(...messages);
+  // Snapshot the original body so a later human edit has something to be a
+  // preference against.
+  for (const m of messages) recordOriginal(m.id, m.body);
 
   const generic = messages.filter((m) => m.signalsUsed.length === 0).length;
   emit(runId, "Outreach", "validation", `3 touches drafted for ${person.fullName}`, {

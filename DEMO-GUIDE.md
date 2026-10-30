@@ -164,7 +164,76 @@ curl -s -X POST localhost:3000/api/band -H 'Content-Type: application/json' -d '
 
 ---
 
-## 5. Framing for this specific audience
+## 5. The learning layer — how to talk about RL without getting caught out
+
+**Do not say "powered by reinforcement learning."** Your audience includes
+people who know exactly what that means, and a vague claim invites the one
+follow-up question that ends badly. The precise version is more impressive and
+it is defensible under questioning.
+
+### What is actually RL here, and you can say so flatly
+
+**Variant selection is a contextual multi-armed bandit with Beta-Bernoulli
+Thompson sampling.** That is a real sequential-decision policy, not a label:
+
+- **Arms:** variant × channel (signal-led/peer-proof × email/LinkedIn)
+- **Context:** buyer seniority band × whether a cited signal exists
+- **Reward:** approval = 1, reply = 2, meeting = 3, rejection = 0 — the HITL
+  gate *is* the reward signal
+- **Exploration:** by sampling each arm's posterior, not a tuned epsilon
+
+Open **Learning** in the rail. The curves are the arms' posterior beliefs about
+their own success rates, drawn from the real Beta parameters. The line to use:
+
+> "Each curve is an arm's posterior. Wide means we don't know yet, so it
+> explores. Narrow means we have evidence, so it exploits. There's no
+> exploration rate to tune — it falls out of sampling the posterior."
+
+Then approve one message and reject another, and refresh. The curves move. A
+bandit you can watch update is worth more than any slide about RL.
+
+### What is RLHF substrate, stated as substrate
+
+Every message a human **edits** before approving is a preference triple: the
+model's draft is `rejected`, the human's edit is `chosen`. That is exactly the
+shape DPO consumes, and the **Download DPO .jsonl** button hands over a real
+training file.
+
+> "The approval gate isn't just a safety mechanism — it's a preference-data
+> generator. Every edit is a DPO pair. We're collecting the dataset. We have
+> **not** fine-tuned on it, and I'm not going to claim we have."
+
+That last sentence is the one that earns trust in a room of builders.
+
+### What does not learn — say this out loud
+
+The Learning view ends with a table where **three of five components are marked
+"no"**: fit-score weights are hand-set, ICP inference is a frozen model with no
+gradient flowing back, and the reviewer's thresholds are fixed rules.
+
+> "Fit weights could be fit by logistic regression against closed-won outcomes.
+> The plumbing is there. But n is nowhere near large enough to fit anything
+> honest, so they stay hand-set — and the arithmetic stays on screen so you can
+> argue with it."
+
+Naming the boundary is the credibility move. A system that claims to learn
+everywhere is a system nobody believes anywhere.
+
+### If someone asks the expert question
+
+> *"Isn't a bandit over two arms a bit trivial?"*
+
+Yes, at four arms and two contexts it is small — and that is the honest state of
+it at this data volume. The interesting part is that the **reward signal is
+already instrumented end to end**: approval, reply and meeting outcomes all flow
+back with correct credit assignment to the message that earned them. Scaling the
+arm space (subject-line families, send timing, touch spacing) is a config change
+rather than an architecture change, and the delayed-reward plumbing for replies
+is the part that is usually missing.
+
+---
+
+## 6. Framing for this specific audience
 
 Builders and founders will not be impressed by "AI finds leads" — they have all
 seen that demo. Three things will land:

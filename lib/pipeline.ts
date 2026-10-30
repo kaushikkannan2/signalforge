@@ -12,6 +12,7 @@ import { graph } from "./graph";
 import { emit } from "./thinking";
 import { id as mkId, now } from "./ids";
 import { LEAD_STAGES, type Actor, type Lead, type LeadStage, type StageTransition } from "./types";
+import { recordReward } from "./rl";
 
 export function ensureLead(personId: string, icpId: string): Lead {
   const existing = db.leads.find((l) => l.personId === personId);
@@ -90,6 +91,18 @@ export function advanceLead(
   if (node) node.props.stage = to;
 
   if (to === "replied") graph.addEdge("replied_to", lead.personId, lead.companyId, { at: transition.at });
+
+  // Delayed reward. A reply or a booked meeting is worth more than an
+  // approval, and it arrives long after the decision that earned it — which is
+  // exactly the credit-assignment problem a bandit over variants is for.
+  if (to === "replied" || to === "meeting_booked") {
+    const sent = db.messages
+      .filter((m) => m.personId === personId && m.status === "sent")
+      .sort((a, b) => b.touch - a.touch)[0];
+    if (sent) {
+      recordReward(sent, findPerson(personId), to === "replied" ? "reply" : "meeting", opts.runId);
+    }
+  }
 
   if (opts.runId) {
     emit(

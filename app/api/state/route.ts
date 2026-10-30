@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { graph } from "@/lib/graph";
 import { dataMode, tavilyConfigured } from "@/lib/providers/tavily";
-import { totalCostUsd, usageLedger } from "@/lib/providers/anthropic";
+import { isFastModeAvailable, totalCostUsd, usageLedger } from "@/lib/providers/anthropic";
 import { autoHydrate } from "@/lib/persist";
 
 
@@ -34,6 +34,10 @@ export async function GET() {
     },
     graph: graph.stats(),
     ledger: db.ledger,
-    llm: { calls: usageLedger().length, costUsd: Number(totalCostUsd().toFixed(4)) },
+    llm: {
+      calls: usageLedger().length,
+      costUsd: Number(totalCostUsd().toFixed(4)),
+      fastMode: isFastModeAvailable(),
+    },
   });
 }

@@ -21,7 +21,8 @@ export type ViewKey =
   | "outreach"
   | "pipeline"
   | "billing"
-  | "agents";
+  | "agents"
+  | "learning";
 
 export interface NavItem {
   key: ViewKey;

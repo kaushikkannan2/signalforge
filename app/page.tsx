@@ -20,6 +20,7 @@ import { HitlQueue } from "@/components/HitlQueue";
 import { Analytics, GraphInsights, PipelineBoard } from "@/components/Pipeline";
 import { RecordDrawer } from "@/components/RecordDrawer";
 import { Constellation } from "@/components/Constellation";
+import { Learning, type LearningData } from "@/components/Learning";
 import { Citations, Confidence, TierBadge } from "@/components/Confidence";
 import { DEMO_INTAKE } from "@/lib/fixtures/demo";
 import type {
@@ -60,6 +61,7 @@ export default function Workspace() {
   const [drawer, setDrawer] = useState<{ personId?: string; companyId?: string } | null>(null);
   const [snapshotGraph, setSnapshotGraph] = useState<{ nodes: any[]; edges: any[] } | null>(null);
   const [graphFocus, setGraphFocus] = useState<string | undefined>();
+  const [learning, setLearning] = useState<LearningData | null>(null);
 
   // intake form
   const [companyName, setCompanyName] = useState("");
@@ -80,6 +82,11 @@ export default function Workspace() {
     const qs = focus ? `?focus=${encodeURIComponent(focus)}&hops=2&cap=70` : "?hops=2&cap=70";
     const r = await fetch(`/api/graph${qs}`).then((x) => x.json()).catch(() => null);
     if (r?.nodes) setSnapshotGraph({ nodes: r.nodes, edges: r.edges });
+  }, []);
+
+  const loadLearning = useCallback(async () => {
+    const r = await fetch("/api/learning").then((x) => x.json()).catch(() => null);
+    if (r?.policy) setLearning(r);
   }, []);
 
   const refreshState = useCallback(async () => {
@@ -124,9 +131,10 @@ export default function Workspace() {
     refreshState();
     hydrate();
     loadGraph();
+    loadLearning();
     const t = setInterval(refreshState, 5000);
     return () => clearInterval(t);
-  }, [refreshState, hydrate, loadGraph]);
+  }, [refreshState, hydrate, loadGraph, loadLearning]);
 
   useEffect(() => {
     const onEsc = (e: KeyboardEvent) => e.key === "Escape" && setDrawer(null);
@@ -148,6 +156,7 @@ export default function Workspace() {
       setBusy(null);
       refreshState();
       hydrate();
+      loadLearning();
     }
   }
 
@@ -282,6 +291,8 @@ export default function Workspace() {
       setApprovals(d.approvals);
       toast(action === "reject" ? "warn" : "ok", `Message ${action.replace(/_/g, " ")}`);
       refreshState();
+      // Each gate decision is a reward observation, so the policy moves.
+      loadLearning();
     } catch (e) {
       toast("error", "Decision failed", e instanceof Error ? e.message : String(e));
     }
@@ -306,6 +317,7 @@ export default function Workspace() {
   async function moveLead(personId: string, to: LeadStage) {
     await post("/api/pipeline", { personId, to, actor: "sales_rep", actorName: "Kaushik (rep)" }).catch(() => null);
     hydrate();
+    loadLearning();
   }
 
   const approvedIcp = icp?.status === "approved";
@@ -328,6 +340,12 @@ export default function Workspace() {
       lockedReason: people.length ? undefined : "Find buyers first",
     },
     { key: "pipeline", label: "Pipeline", glyph: "▦", count: leads.length, lockedReason: leads.length ? undefined : "No leads yet" },
+    {
+      key: "learning",
+      label: "Learning",
+      glyph: "∿",
+      count: learning?.policy.totalPulls ?? 0,
+    },
     { key: "agents", label: "Agent room", glyph: "◈" },
     { key: "billing", label: "Usage & billing", glyph: "◧" },
   ];
@@ -371,6 +389,7 @@ export default function Workspace() {
     { id: "c5", label: "Draft outreach", hint: "copy", disabled: !people.length, run: draftOutreach },
     { id: "c6", label: "Run graph queries", hint: "cypher", disabled: !people.length, run: runGraph },
     { id: "c7", label: "Run agent collaboration", hint: "band", run: runBand },
+    { id: "c7b", label: "Show the learning layer", hint: "policy", run: () => { setView("learning"); loadLearning(); } },
     { id: "c8", label: "Freeze dataset to disk", hint: "snapshot", run: snapshot },
     { id: "d1", label: "Load demo scenario (7 narration accounts)", hint: "dataset", run: () => loadScenario(0) },
     { id: "d2", label: "Load scale dataset (300 accounts)", hint: "dataset", run: () => loadScenario(300) },
@@ -635,6 +654,8 @@ export default function Workspace() {
                 )}
               </div>
             )}
+
+            {view === "learning" && <Learning data={learning} onRefresh={loadLearning} />}
 
             {view === "agents" && (
               <AgentRoom band={band} onRun={runBand} busy={Boolean(busy)} />

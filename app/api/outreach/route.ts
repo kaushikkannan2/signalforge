@@ -15,9 +15,15 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { personIds, variant = "signal_led", review = true } = (await req
+  const { personIds, variant, review = true, forceVariant = false } = (await req
     .json()
-    .catch(() => ({}))) as { personIds?: string[]; variant?: VariantKey; review?: boolean };
+    .catch(() => ({}))) as {
+    personIds?: string[];
+    variant?: VariantKey;
+    review?: boolean;
+    /** Forces the arm, bypassing the policy. Used for head-to-head comparison. */
+    forceVariant?: boolean;
+  };
 
   const icp = activeIcp();
   if (!icp || icp.status !== "approved") {
@@ -41,16 +47,12 @@ export async function POST(req: NextRequest) {
 
   const runId = mkId("run");
   try {
-    // Alternate the A/B arm across recipients so the variant comparison is a
-    // real split rather than one arm applied to everyone.
+    // No manual alternation. The bandit picks each arm from the posterior for
+    // that buyer's context, so the split emerges from the policy rather than
+    // from a round-robin — which is the whole point of having a policy.
     const drafted = await Promise.all(
-      targets.map((person, i) =>
-        draftSequence(
-          person.id,
-          icp,
-          runId,
-          (i % 2 === 0 ? variant : variant === "signal_led" ? "peer_proof" : "signal_led") as VariantKey,
-        ).catch((err) => {
+      targets.map((person) =>
+        draftSequence(person.id, icp, runId, forceVariant ? variant : undefined).catch((err) => {
           emit(runId, "Outreach", "error", `Draft failed for ${person.fullName}`, {
             detail: err instanceof Error ? err.message : String(err),
           });

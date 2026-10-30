@@ -28,7 +28,7 @@ produces a mid-range confidence you can be honest about.
 Paste this into the single textarea:
 
 ```
-We sell an observability platform to backend engineering teams running distributed systems. It traces a request across every service it touches and ties a latency regression back to the exact deploy that caused it, so an on-call engineer stops bisecting commits at 3am. Our users are platform and SRE teams at Series A to Series C companies — usually the first infrastructure hire who just inherited an on-call rotation and no tooling. Datadog is too expensive for them and too broad; they want traces, not a hundred dashboards. Self-serve starts at $400 a month and the team tier lands around $45,000 a year.
+We sell an observability platform to backend engineering teams running distributed systems. It traces a request across every service it touches and ties a latency regression back to the exact deploy that caused it, so an on-call engineer stops bisecting commits at 3am. Our users are platform and SRE teams at Series A to Series C companies — usually the first infrastructure hire who just inherited an on-call rotation and no tooling. They want traces, not a hundred dashboards. Self-serve starts at $400 a month and the team tier lands around $45,000 a year.
 ```
 
 Click **Forge my pipeline**.

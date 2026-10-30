@@ -333,11 +333,16 @@ verify instead of trusting your own logs.
 > its own fields are weakest and asks about exactly those."
 
 ### "What's your moat? Clay could ship this."
-> "Clay could ship citations. What compounds is the graph: warm-intro paths,
+> "Clay could ship citations — they have a far larger provider catalogue than we
+> do. What compounds is the graph: warm-intro paths,
 > job-requisition-to-buying-cycle links, displacement windows. Those are
-> multi-hop relationship questions — awkward in a relational schema, impossible
-> in a spreadsheet, and the spreadsheet is their core metaphor. Every run adds
-> nodes and edges, so the hundredth account is cheaper to work than the first."
+> multi-hop relationship questions — awkward in a relational schema and hard to
+> express in a table, which is their core metaphor. Every run adds nodes and
+> edges, so the hundredth account is cheaper to work than the first."
+
+**Do not say "impossible in a spreadsheet."** It is hard, not impossible, and
+someone in that room has probably done a version of it. "Hard to express in a
+table" is both true and sufficient.
 
 ### "How do you know the leads are real?"
 > "Click a citation chip. It opens the source. Hover it first and you'll see the

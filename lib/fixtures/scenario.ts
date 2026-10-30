@@ -357,7 +357,7 @@ export const SCENARIO_COMPETITORS: Omit<Competitor, "evidence">[] = [
     domain: "claystack.example",
     category: "direct",
     positioning: "Spreadsheet-native data enrichment and outbound orchestration",
-    valueProposition: "Chain fifty-plus enrichment providers in a familiar table interface",
+    valueProposition: "Chain a large catalogue of enrichment providers in a familiar table interface",
     pricingTiers: [
       { name: "Starter", price: "$149/mo", notes: "2,000 credits" },
       { name: "Pro", price: "$800/mo", notes: "20,000 credits" },
@@ -396,10 +396,10 @@ export const SCENARIO_COMPETITORS: Omit<Competitor, "evidence">[] = [
     category: "alternative",
     positioning: "Outsourced SDR team on retainer",
     valueProposition: "Buy meetings, not software",
-    pricingTiers: [{ name: "Retainer", price: "$8k–$15k/mo", notes: "" }],
+    pricingTiers: [{ name: "Retainer", price: "$3k–$14k/mo", notes: "Entry tiers from $2.5k; enterprise $15k-30k+" }],
     structuralAdvantages: ["No ramp for the buyer", "Human judgement included"],
     ourDifferentiators: [
-      "Roughly an order of magnitude cheaper per qualified meeting",
+      "Cheaper per qualified meeting than a mid-market retainer, though not than an entry tier",
       "Institutional knowledge stays in the graph instead of leaving with the agency",
     ],
   },
@@ -410,7 +410,7 @@ export const SCENARIO_COMPETITORS: Omit<Competitor, "evidence">[] = [
     category: "indirect",
     positioning: "The status quo: hire reps, give them a CRM and a list",
     valueProposition: "Full control, no new vendor",
-    pricingTiers: [{ name: "Fully loaded SDR", price: "~$95k/yr each", notes: "" }],
+    pricingTiers: [{ name: "Fully loaded SDR", price: "$90k–$130k/yr each", notes: "Base, commission, benefits, tooling, ramp" }],
     structuralAdvantages: ["Total control", "No procurement"],
     ourDifferentiators: [
       "Context survives rep turnover",

@@ -41,10 +41,13 @@ export function Rail({
   items,
   active,
   onSelect,
+  onHome,
 }: {
   items: NavItem[];
   active: ViewKey;
   onSelect: (key: ViewKey) => void;
+  /** Back to the landing screen, keeping state. Distinct from reset, which wipes it. */
+  onHome?: () => void;
 }) {
   // ⌘1–9 jumps between views. Costs nothing, and anyone who lives in Linear
   // or Raycast will try it within the first ten seconds.
@@ -76,9 +79,20 @@ export function Rail({
         background: "linear-gradient(180deg, #19202b 0%, #0e131b 100%)",
       }}
     >
-      <div className="px-1 py-3.5 mb-2">
+      {/*
+        The logo goes home. This was missing, and "reset" was the only route
+        back to the landing screen — which also destroyed the run, so there was
+        no way to simply start over without losing what you had.
+      */}
+      <button
+        onClick={onHome}
+        disabled={!onHome}
+        title={onHome ? "Back to the start screen — your run is kept" : undefined}
+        className="px-1 py-3.5 mb-2 text-left rounded-md"
+        style={{ cursor: onHome ? "pointer" : "default", background: "transparent" }}
+      >
         <Logo size={30} tagline="forged pipeline" />
-      </div>
+      </button>
 
       {/*
         The rail spine. A vertical line through the pipeline-stage items, filled

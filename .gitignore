@@ -56,3 +56,5 @@ next-env.d.ts
 # inferred contact details for real individuals to a public repo is a privacy
 # problem regardless of how the addresses were derived.
 /data/
+
+.scratch/

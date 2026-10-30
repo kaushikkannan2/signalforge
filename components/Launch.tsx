@@ -40,11 +40,18 @@ export function Launch({
   running,
   error,
   onSkipToDemo,
+  onReturn,
+  onReset,
+  hasRun,
 }: {
   onSubmit: (description: string) => void;
   running: boolean;
   error: string | null;
   onSkipToDemo: () => void;
+  /** Back to the workspace. Present only when there is a run to return to. */
+  onReturn?: () => void;
+  onReset?: () => void;
+  hasRun?: boolean;
 }) {
   const [text, setText] = useState("");
   const [steps, setSteps] = useState<ThinkingStep[]>([]);
@@ -71,7 +78,39 @@ export function Launch({
   const tooShort = text.trim().length > 0 && text.trim().length < 40;
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-6 py-10">
+    <div className="min-h-screen flex items-center justify-center px-6 py-10 relative">
+      {/*
+        Arriving here with a run already loaded used to be a dead end: the only
+        way forward was to start a new inference, which threw the run away. Both
+        routes are now explicit — go back to it, or deliberately clear it.
+      */}
+      {hasRun && !running && (
+        <div className="absolute top-5 right-5 flex items-center gap-2">
+          {onReturn && (
+            <button
+              onClick={onReturn}
+              className="btn-ghost px-3 py-1.5 rounded-md"
+              style={{ fontSize: "0.8125rem" }}
+            >
+              Back to workspace →
+            </button>
+          )}
+          {onReset && (
+            <button
+              onClick={onReset}
+              title="Clears accounts, buyers, messages, the graph and the policy"
+              className="px-3 py-1.5 rounded-md"
+              style={{
+                fontSize: "0.8125rem",
+                color: "var(--color-ink-faint)",
+                border: "1px solid var(--color-rule)",
+              }}
+            >
+              Clear and start over
+            </button>
+          )}
+        </div>
+      )}
       <div className="w-full" style={{ maxWidth: running ? "46rem" : "41rem" }}>
         {/* --- hero --- */}
         <div className="flex flex-col items-center text-center">

@@ -245,11 +245,36 @@ cited claim and a mandatory approval record answer both objections at once.
 
 | Versus | Their shape | Ours |
 |---|---|---|
-| Clay / Claystack | A table you author, 50+ providers to chain | A pipeline from a product description; no table-building |
+| Clay | A table you author, with a waterfall across 75–150+ providers<sup>[1]</sup> | A pipeline from a product description; no table-building |
 | Apollo / ZoomInfo | A database you query with filters | An inferred profile that explains its own confidence |
 | 6sense / Demandbase | Black-box intent score, marketing-owned | Intent explained with a citable source per claim |
-| Agency on retainer | $8–15k/mo, context leaves with the agency | Institutional knowledge stays in the graph |
-| In-house SDRs + spreadsheets | ~$95k/yr per rep, context dies with turnover | Research-to-first-touch in seconds, context persists |
+| Outsourced SDR agency | $3k–$14k/mo typical, $15k–$30k+ for enterprise programmes<sup>[2]</sup>; context leaves with the agency | Institutional knowledge stays in the graph |
+| In-house SDRs + spreadsheets | $90k–$130k fully loaded per rep<sup>[3]</sup>; context dies with turnover | Research-to-first-touch in seconds, context persists |
+
+**Sources for the figures above.** These were checked rather than estimated —
+the first draft of this table used $8–15k/mo for agencies, ~$95k/yr for an SDR,
+and "50+ providers" for Clay. All three were wrong, and all three happened to be
+wrong in the direction that flattered us, which is the bias worth naming.
+
+1. Clay's own waterfall documentation and third-party reviews put the provider
+   catalogue between 75+ and 150+ depending on the source and date
+   ([clay.com/waterfall-enrichment](https://www.clay.com/waterfall-enrichment),
+   [lelab0.com Clay data sources guide](https://lelab0.com/en/guide-clay/data-sources/)).
+2. Outsourced SDR programmes run roughly $3,000–$14,000/mo, with entry tiers from
+   $2,500 and enterprise programmes at $15,000–$30,000+
+   ([revnew.com](https://revnew.com/blog/sdr-outsourcing-cost),
+   [salespipe.co](https://salespipe.co/blog/outsourced-sdr-pricing-models-costs-hidden-fees),
+   [leadium.com](https://www.leadium.com/blog/outsourced-sdr-cost)).
+3. Fully-loaded in-house SDR cost is most commonly cited at $90,000–$130,000/yr,
+   with the full spread across sources running $85,000–$143,000
+   ([stealthagents.com](https://stealthagents.com/research/cost-of-hiring-an-sdr-2026),
+   [martal.ca](https://martal.ca/sdr-salary-lb/),
+   [saleshive.com](https://saleshive.com/blog/true-cost-sdr-sales-development-rep)).
+
+**What the corrected numbers mean for the pitch.** At $18k ARR we are
+comfortably below a fully-loaded rep and below a mid-market agency retainer — but
+**not** an order of magnitude below an entry-tier agency at $2,500/mo. Do not
+claim "an order of magnitude cheaper" without naming which comparison.
 
 **Pricing.** Usage-based, metered through Flexprice: credits per lead enriched,
 per message sent, per graph query. It aligns price with value delivered, and —

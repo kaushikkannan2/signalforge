@@ -534,6 +534,11 @@ export default function Workspace() {
           running={busy === "Inferring ICP"}
           error={error}
           onSkipToDemo={launchFromDataset}
+          /* Only offered when there is a run to go back to, so the landing
+             screen never strands you with state you cannot reach. */
+          onReturn={icp ? () => setScreen("workspace") : undefined}
+          onReset={resetAll}
+          hasRun={Boolean(icp)}
         />
         <Toasts toasts={toasts} onDismiss={(id) => setToasts((t) => t.filter((x) => x.id !== id))} />
       </>
@@ -542,7 +547,7 @@ export default function Workspace() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Rail items={nav} active={view} onSelect={setView} />
+      <Rail items={nav} active={view} onSelect={setView} onHome={() => setScreen("launch")} />
 
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar

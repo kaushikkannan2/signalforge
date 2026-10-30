@@ -52,19 +52,19 @@ export function RecordDrawer({
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end" onClick={onClose}>
-      <div style={{ flex: 1, background: "rgba(28,25,23,0.25)" }} />
+      <div style={{ flex: 1, background: "rgba(3,6,12,0.6)" }} />
       <aside
         onClick={(ev) => ev.stopPropagation()}
         className="h-full overflow-y-auto border-l shadow-lg"
         style={{
           width: "min(34rem, 92vw)",
-          background: "var(--color-paper-raised)",
+          background: "var(--color-surface)",
           borderColor: "var(--color-rule-strong)",
         }}
       >
         <header
           className="sticky top-0 px-4 py-3 border-b flex items-start justify-between gap-3"
-          style={{ borderColor: "var(--color-rule)", background: "var(--color-paper-raised)" }}
+          style={{ borderColor: "var(--color-rule)", background: "var(--color-surface)" }}
         >
           <div className="min-w-0">
             <h2 className="display" style={{ fontSize: "1.1875rem" }}>
@@ -303,8 +303,8 @@ export function RecordDrawer({
                   <span
                     className="rule-label px-1 rounded shrink-0"
                     style={{
-                      background: h.actor === "ai_agent" ? "#ede9fe" : h.actor === "sales_rep" ? "#dbeafe" : "var(--color-rule)",
-                      color: h.actor === "ai_agent" ? "#5b21b6" : h.actor === "sales_rep" ? "#1e40af" : "var(--color-ink-soft)",
+                      background: h.actor === "ai_agent" ? "var(--color-bridge-soft)" : h.actor === "sales_rep" ? "var(--color-person-soft)" : "rgba(100,116,139,0.16)",
+                      color: h.actor === "ai_agent" ? "var(--color-bridge)" : h.actor === "sales_rep" ? "var(--color-person)" : "var(--color-ink-soft)",
                     }}
                   >
                     {h.actor === "ai_agent" ? "AI" : h.actor === "sales_rep" ? "Rep" : "Sys"}

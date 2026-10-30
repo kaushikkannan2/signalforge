@@ -4,9 +4,9 @@ import { Citations } from "./Confidence";
 import type { Competitor } from "@/lib/types";
 
 const CATEGORY_TONE: Record<Competitor["category"], { bg: string; fg: string; note: string }> = {
-  direct: { bg: "#fee2e2", fg: "var(--color-alarm)", note: "same problem, same buyer" },
-  indirect: { bg: "#fef3c7", fg: "var(--color-tier-b)", note: "part of the problem, or a different buyer" },
-  alternative: { bg: "#e0e7ff", fg: "#3730a3", note: "what they do instead of buying software" },
+  direct: { bg: "var(--color-alarm-soft)", fg: "var(--color-alarm)", note: "same problem, same buyer" },
+  indirect: { bg: "var(--color-signal-soft)", fg: "var(--color-tier-b)", note: "part of the problem, or a different buyer" },
+  alternative: { bg: "var(--color-bridge-soft)", fg: "var(--color-bridge)", note: "what they do instead of buying software" },
 };
 
 export function CompetitorPanel({ competitors }: { competitors: Competitor[] }) {
@@ -14,7 +14,7 @@ export function CompetitorPanel({ competitors }: { competitors: Competitor[] }) 
   const order: Competitor["category"][] = ["direct", "indirect", "alternative"];
 
   return (
-    <section className="border rounded-lg bg-white" style={{ borderColor: "var(--color-rule)" }}>
+    <section className="surface" style={{ borderColor: "var(--color-rule)" }}>
       <header className="px-4 py-3 border-b" style={{ borderColor: "var(--color-rule)" }}>
         <h2 className="display" style={{ fontSize: "1.25rem" }}>
           Competitive landscape

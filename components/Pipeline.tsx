@@ -13,9 +13,9 @@ const STAGE_LABEL: Record<LeadStage, string> = {
 };
 
 const ACTOR_BADGE: Record<Actor, { label: string; bg: string; fg: string }> = {
-  ai_agent: { label: "AI", bg: "#ede9fe", fg: "#5b21b6" },
-  sales_rep: { label: "Rep", bg: "#dbeafe", fg: "#1e40af" },
-  system: { label: "Sys", bg: "var(--color-rule)", fg: "var(--color-ink-soft)" },
+  ai_agent: { label: "AI", bg: "var(--color-bridge-soft)", fg: "var(--color-bridge)" },
+  sales_rep: { label: "Rep", bg: "var(--color-person-soft)", fg: "var(--color-person)" },
+  system: { label: "Sys", bg: "rgba(100,116,139,0.16)", fg: "var(--color-ink-soft)" },
 };
 
 /** Kanban with drag between stages. A rep dragging a card is attributed as a rep action. */
@@ -35,7 +35,7 @@ export function PipelineBoard({
   const companyOf = (id: string) => companies.find((c) => c.id === id);
 
   return (
-    <section className="border rounded-lg bg-white" style={{ borderColor: "var(--color-rule)" }}>
+    <section className="surface" style={{ borderColor: "var(--color-rule)" }}>
       <header className="px-4 py-3 border-b" style={{ borderColor: "var(--color-rule)" }}>
         <h2 className="display" style={{ fontSize: "1.25rem" }}>
           Pipeline
@@ -59,10 +59,10 @@ export function PipelineBoard({
                   const personId = e.dataTransfer.getData("text/plain");
                   if (personId) onMove(personId, stage);
                 }}
-                className="flex-1 rounded border p-2"
+                className="flex-1 rounded-lg border p-2"
                 style={{
                   borderColor: "var(--color-rule)",
-                  background: "var(--color-paper)",
+                  background: "rgba(23,30,42,0.6)",
                   minWidth: "10rem",
                 }}
               >
@@ -88,8 +88,17 @@ export function PipelineBoard({
                               `${h.from ?? "—"} → ${h.to}  [${h.actor === "ai_agent" ? "AI" : h.actor === "sales_rep" ? "Rep" : "Sys"}: ${h.actorName}]  ${h.reason}`,
                           )
                           .join("\n")}
-                        className="bg-white rounded border p-2 cursor-grab active:cursor-grabbing"
-                        style={{ borderColor: "var(--color-rule-strong)" }}
+                        className="surface-flat p-2 cursor-grab active:cursor-grabbing relative overflow-hidden"
+                        style={{
+                          borderColor: "var(--color-rule)",
+                          boxShadow: `inset 3px 0 0 ${
+                            lead.tier === "A"
+                              ? "var(--color-tier-a)"
+                              : lead.tier === "B"
+                                ? "var(--color-tier-b)"
+                                : "var(--color-tier-c)"
+                          }`,
+                        }}
                       >
                         <div className="flex items-center justify-between gap-1.5 mb-1">
                           <TierBadge tier={lead.tier} />
@@ -140,7 +149,7 @@ interface AnalyticsData {
 export function Analytics({ data }: { data: AnalyticsData }) {
   const max = Math.max(1, ...data.funnel.map((f) => f.count));
   return (
-    <section className="border rounded-lg bg-white" style={{ borderColor: "var(--color-rule)" }}>
+    <section className="surface" style={{ borderColor: "var(--color-rule)" }}>
       <header className="px-4 py-3 border-b" style={{ borderColor: "var(--color-rule)" }}>
         <h2 className="display" style={{ fontSize: "1.25rem" }}>
           Conversion &amp; attribution
@@ -158,8 +167,19 @@ export function Analytics({ data }: { data: AnalyticsData }) {
             {data.funnel.map((f) => (
               <div key={f.stage} className="grid items-center gap-2" style={{ gridTemplateColumns: "7.5rem 1fr 3.5rem" }}>
                 <span style={{ fontSize: "0.75rem" }}>{STAGE_LABEL[f.stage]}</span>
-                <div className="meter" style={{ height: 14 }}>
-                  <span style={{ width: `${(f.count / max) * 100}%`, background: "var(--color-vine)" }} />
+                <div
+                  className="relative rounded-md overflow-hidden"
+                  style={{ height: 20, background: "var(--color-surface-2)" }}
+                >
+                  <span
+                    className="absolute inset-y-0 left-0 rounded-md"
+                    style={{
+                      width: `${(f.count / max) * 100}%`,
+                      background: "linear-gradient(90deg, rgba(52,211,153,0.9), rgba(56,189,248,0.75))",
+                      boxShadow: "0 0 12px rgba(52,211,153,0.3)",
+                      transition: "width 700ms cubic-bezier(0.16,1,0.3,1)",
+                    }}
+                  />
                 </div>
                 <span className="mono grid-surface" style={{ fontSize: "0.75rem" }}>
                   {f.count}
@@ -282,7 +302,7 @@ export function GraphInsights({
 }) {
   if (!results.length) return null;
   return (
-    <section className="border rounded-lg bg-white" style={{ borderColor: "var(--color-rule)" }}>
+    <section className="surface" style={{ borderColor: "var(--color-rule)" }}>
       <header className="px-4 py-3 border-b" style={{ borderColor: "var(--color-rule)" }}>
         <h2 className="display" style={{ fontSize: "1.25rem" }}>
           Graph reasoning
@@ -312,7 +332,7 @@ export function GraphInsights({
                 className="mono mt-1 p-2 rounded border scroll-x"
                 style={{
                   borderColor: "var(--color-rule)",
-                  background: "var(--color-paper)",
+                  background: "var(--color-surface-2)",
                   fontSize: "0.6875rem",
                 }}
               >

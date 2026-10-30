@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Citations, TierBadge } from "./Confidence";
+import { Citations, ScoreRing, TierBadge } from "./Confidence";
 import type { Company, Signal } from "@/lib/types";
 
 /**
@@ -77,7 +77,7 @@ export function AccountGrid({
   const pad = dense ? "py-1.5" : "py-3";
 
   return (
-    <section className="border rounded-lg bg-white" style={{ borderColor: "var(--color-rule)" }}>
+    <section className="surface" style={{ borderColor: "var(--color-rule)" }}>
       <header className="px-4 py-3 border-b" style={{ borderColor: "var(--color-rule)" }}>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
@@ -155,7 +155,7 @@ export function AccountGrid({
               className="border-b"
               style={{ borderColor: "var(--color-rule)", color: "var(--color-ink-faint)" }}
             >
-              <th className="text-right font-semibold px-3 py-2 w-16">Fit</th>
+              <th className="text-left font-semibold px-3 py-2 w-16">Fit</th>
               <th className="text-left font-semibold px-2 py-2 w-16">Tier</th>
               <th className="text-left font-semibold px-2 py-2">Account</th>
               <th className="text-left font-semibold px-2 py-2 w-28">NAICS</th>
@@ -178,17 +178,14 @@ export function AccountGrid({
                 <tr
                   key={c.id}
                   onClick={() => onSelect?.(c.id)}
-                  className={`border-b cursor-pointer hover:bg-[var(--color-paper)]`}
+                  className={`border-b cursor-pointer row-hover ${selectedId === c.id ? "row-active" : ""}`}
                   style={{
                     borderColor: "var(--color-rule)",
-                    background: selectedId === c.id ? "var(--color-vine-soft)" : undefined,
-                    opacity: c.disqualified ? 0.55 : 1,
+                    opacity: c.disqualified ? 0.5 : 1,
                   }}
                 >
-                  <td className={`px-3 ${pad} text-right align-top`}>
-                    <span className="mono font-semibold" title={arithmetic}>
-                      {c.fit.total}
-                    </span>
+                  <td className={`px-3 ${pad} align-top`} title={arithmetic}>
+                    <ScoreRing value={c.fit.total} tier={c.fit.tier} muted={c.disqualified} />
                   </td>
                   <td className={`px-2 ${pad} align-top`}>
                     <TierBadge tier={c.fit.tier} />
@@ -330,7 +327,7 @@ export function SignalFeed({ signals, companies }: { signals: Signal[]; companie
   if (!signals.length) return null;
   const nameOf = (id: string) => companies.find((c) => c.id === id)?.name ?? id;
   return (
-    <section className="border rounded-lg bg-white" style={{ borderColor: "var(--color-rule)" }}>
+    <section className="surface" style={{ borderColor: "var(--color-rule)" }}>
       <header className="px-4 py-3 border-b" style={{ borderColor: "var(--color-rule)" }}>
         <h2 className="display" style={{ fontSize: "1.25rem" }}>
           Buying signals

@@ -1,26 +1,53 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ThinkingStep } from "@/lib/types";
 
-const KIND_STYLE: Record<ThinkingStep["kind"], { glyph: string; color: string; label: string }> = {
+/* ---------------------------------------------------------------------------
+   The reasoning timeline.
+
+   This is the panel people actually watch, so it is built as a trace rather
+   than a log: a spine with a node per step, grouped by phase, each phase
+   collapsible and carrying its own elapsed time. Colour is the same semantic
+   system as the rest of the app — amber is a decision, violet is the graph,
+   sky is an external call, rose is a failure — so the shape of a run is
+   legible before any text is read.
+
+   Three things it deliberately shows that a log hides: where time actually
+   went (duration bars, scaled within each phase), the verbatim query behind a
+   graph step, and every point at which the system stopped and waited for a
+   human.
+   --------------------------------------------------------------------------- */
+
+const KIND: Record<
+  ThinkingStep["kind"],
+  { glyph: string; color: string; label: string }
+> = {
   reasoning: { glyph: "◆", color: "var(--color-vine)", label: "reasoning" },
-  tool_call: { glyph: "→", color: "#1d4ed8", label: "provider call" },
-  graph_query: { glyph: "⬡", color: "#7c3aed", label: "graph query" },
-  validation: { glyph: "✓", color: "var(--color-tier-a)", label: "validation" },
+  tool_call: { glyph: "↗", color: "var(--color-person)", label: "external call" },
+  graph_query: { glyph: "⬡", color: "var(--color-bridge)", label: "graph query" },
+  validation: { glyph: "✓", color: "var(--color-vine)", label: "validation" },
   gate: { glyph: "⏸", color: "var(--color-signal)", label: "human gate" },
   error: { glyph: "✕", color: "var(--color-alarm)", label: "error" },
 };
 
-/**
- * The live reasoning feed. Open by default during a run, because the whole
- * argument of this product is that you can see why it did what it did.
- */
+interface Phase {
+  name: string;
+  steps: ThinkingStep[];
+  totalMs: number;
+  maxMs: number;
+  hasError: boolean;
+  hasGate: boolean;
+}
+
 export function ThinkingPanel({ running }: { running: boolean }) {
   const [steps, setSteps] = useState<ThinkingStep[]>([]);
-  const [open, setOpen] = useState(true);
   const [connected, setConnected] = useState(false);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState<ThinkingStep["kind"] | "all">("all");
+  const [open, setOpen] = useState(true);
   const scroller = useRef<HTMLDivElement>(null);
+  const pinned = useRef(true);
 
   useEffect(() => {
     const es = new EventSource("/api/thinking");
@@ -28,92 +55,203 @@ export function ThinkingPanel({ running }: { running: boolean }) {
     es.onerror = () => setConnected(false);
     es.onmessage = (e) => {
       const step = JSON.parse(e.data) as ThinkingStep;
-      setSteps((prev) => (prev.some((s) => s.id === step.id) ? prev : [...prev, step].slice(-400)));
+      setSteps((prev) =>
+        prev.some((s) => s.id === step.id) ? prev : [...prev, step].slice(-500),
+      );
     };
     return () => es.close();
   }, []);
 
+  // Only auto-scroll when the operator hasn't scrolled up to read something.
   useEffect(() => {
-    scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
+    if (!pinned.current || !scroller.current) return;
+    scroller.current.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
   }, [steps.length]);
 
+  const phases = useMemo<Phase[]>(() => {
+    const visible = filter === "all" ? steps : steps.filter((s) => s.kind === filter);
+    const out: Phase[] = [];
+    for (const step of visible) {
+      let phase = out[out.length - 1];
+      if (!phase || phase.name !== step.phase) {
+        phase = { name: step.phase, steps: [], totalMs: 0, maxMs: 0, hasError: false, hasGate: false };
+        out.push(phase);
+      }
+      phase.steps.push(step);
+      phase.totalMs += step.durationMs ?? 0;
+      phase.maxMs = Math.max(phase.maxMs, step.durationMs ?? 0);
+      if (step.kind === "error") phase.hasError = true;
+      if (step.kind === "gate") phase.hasGate = true;
+    }
+    return out;
+  }, [steps, filter]);
+
+  const counts = useMemo(() => {
+    const c = new Map<string, number>();
+    for (const s of steps) c.set(s.kind, (c.get(s.kind) ?? 0) + 1);
+    return c;
+  }, [steps]);
+
+  const elapsed = steps.reduce((t, s) => t + (s.durationMs ?? 0), 0);
+
   return (
-    <aside
-      className="border rounded-lg bg-white flex flex-col"
-      style={{ borderColor: "var(--color-rule)", maxHeight: open ? "calc(100vh - 8rem)" : undefined }}
-    >
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center justify-between gap-3 px-3 py-2.5 text-left w-full border-b"
-        style={{ borderColor: open ? "var(--color-rule)" : "transparent" }}
+    <aside className="surface flex flex-col overflow-hidden" style={{ maxHeight: "calc(100vh - 7.5rem)" }}>
+      <header
+        className="px-3 py-2.5 border-b shrink-0"
+        style={{
+          borderColor: "var(--color-rule)",
+          background: "linear-gradient(180deg, rgba(52,211,153,0.07), transparent)",
+        }}
       >
-        <span className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <span
-            className="inline-block w-1.5 h-1.5 rounded-full"
+            className={`inline-block rounded-full shrink-0 ${running ? "live-dot" : ""}`}
             style={{
-              background: running ? "var(--color-vine)" : connected ? "var(--color-ink-faint)" : "var(--color-alarm)",
-              boxShadow: running ? "0 0 0 3px var(--color-vine-soft)" : undefined,
+              width: 7,
+              height: 7,
+              background: running
+                ? "var(--color-vine)"
+                : connected
+                  ? "var(--color-ink-faint)"
+                  : "var(--color-alarm)",
+              color: "var(--color-vine)",
             }}
           />
-          <span className="rule-label" style={{ color: "var(--color-ink-soft)" }}>
-            Agent thinking
+          <span className="display" style={{ fontSize: "0.9375rem" }}>
+            Reasoning trace
           </span>
-          <span className="mono" style={{ color: "var(--color-ink-faint)" }}>
-            {steps.length}
+          <span className="mono ml-auto grid-surface" style={{ fontSize: "0.625rem", color: "var(--color-ink-faint)" }}>
+            {steps.length} steps · {(elapsed / 1000).toFixed(1)}s
           </span>
-        </span>
-        <span className="mono" style={{ color: "var(--color-ink-faint)" }}>
-          {open ? "collapse" : "expand"}
-        </span>
-      </button>
+          <button
+            onClick={() => setOpen((o) => !o)}
+            className="mono shrink-0"
+            style={{ fontSize: "0.625rem", color: "var(--color-ink-faint)" }}
+          >
+            {open ? "▾" : "▸"}
+          </button>
+        </div>
+
+        {open && (
+          <div className="flex gap-1 mt-2 flex-wrap">
+            <Chip
+              active={filter === "all"}
+              onClick={() => setFilter("all")}
+              color="var(--color-ink-soft)"
+              label={`all ${steps.length}`}
+            />
+            {(Object.keys(KIND) as ThinkingStep["kind"][])
+              .filter((k) => counts.get(k))
+              .map((k) => (
+                <Chip
+                  key={k}
+                  active={filter === k}
+                  onClick={() => setFilter(filter === k ? "all" : k)}
+                  color={KIND[k].color}
+                  label={`${KIND[k].glyph} ${counts.get(k)}`}
+                  title={KIND[k].label}
+                />
+              ))}
+          </div>
+        )}
+      </header>
 
       {open && (
-        <div ref={scroller} className="overflow-y-auto px-3 py-2 flex flex-col gap-1.5">
-          {steps.length === 0 && (
-            <p className="mono py-6 text-center" style={{ color: "var(--color-ink-faint)" }}>
-              Idle. Reasoning steps, provider calls and graph queries appear here as they happen.
-            </p>
+        <div
+          ref={scroller}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+          }}
+          className="overflow-y-auto px-2.5 py-2 flex flex-col gap-2.5"
+        >
+          {!phases.length && (
+            <div className="py-10 text-center">
+              <p className="mono" style={{ fontSize: "0.6875rem", color: "var(--color-ink-faint)" }}>
+                Idle
+              </p>
+              <p className="mt-1.5 mx-auto" style={{ fontSize: "0.75rem", color: "var(--color-ink-faint)", maxWidth: "15rem" }}>
+                Reasoning steps, provider calls, verbatim graph queries and every human gate
+                stream here as they happen.
+              </p>
+            </div>
           )}
-          {steps.map((s) => {
-            const style = KIND_STYLE[s.kind] ?? KIND_STYLE.reasoning;
+
+          {phases.map((phase, pi) => {
+            const key = `${phase.name}-${pi}`;
+            const isCollapsed = collapsed.has(key);
+            const isLast = pi === phases.length - 1;
             return (
-              <div key={s.id} className="step-in leading-snug">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="mono shrink-0" style={{ color: style.color }} title={style.label}>
-                    {style.glyph}
-                  </span>
-                  <span className="mono shrink-0" style={{ color: "var(--color-ink-faint)" }}>
-                    {new Date(s.at).toLocaleTimeString("en-GB", { hour12: false })}
-                  </span>
-                  <span style={{ fontSize: "0.8125rem", color: "var(--color-ink)" }}>{s.label}</span>
-                  {s.durationMs !== undefined && (
-                    <span className="mono shrink-0" style={{ color: "var(--color-ink-faint)" }}>
-                      {s.durationMs}ms
-                    </span>
-                  )}
-                </div>
-                {s.detail && (
-                  <p
-                    className="pl-[3.1rem] pr-1"
-                    style={{ fontSize: "0.75rem", color: "var(--color-ink-soft)" }}
+              <section key={key}>
+                <button
+                  onClick={() =>
+                    setCollapsed((prev) => {
+                      const next = new Set(prev);
+                      next.has(key) ? next.delete(key) : next.add(key);
+                      return next;
+                    })
+                  }
+                  className="w-full flex items-center gap-2 px-1.5 py-1 rounded row-hover text-left"
+                >
+                  <span
+                    className="mono shrink-0"
+                    style={{ fontSize: "0.5625rem", color: "var(--color-ink-faint)" }}
                   >
-                    {s.detail}
-                  </p>
-                )}
-                {s.query && (
-                  <pre
-                    className="mono ml-[3.1rem] mt-1 mb-1 p-2 rounded border scroll-x whitespace-pre"
+                    {isCollapsed ? "▸" : "▾"}
+                  </span>
+                  <span
+                    className="rule-label"
                     style={{
-                      borderColor: "var(--color-rule)",
-                      background: "var(--color-paper)",
-                      color: "var(--color-ink-soft)",
-                      fontSize: "0.6875rem",
+                      color: phase.hasError
+                        ? "var(--color-alarm)"
+                        : phase.hasGate
+                          ? "var(--color-signal)"
+                          : "var(--color-ink-soft)",
+                      fontSize: "0.625rem",
                     }}
                   >
-                    {s.query}
-                  </pre>
+                    {phase.name}
+                  </span>
+                  <span
+                    className="h-px flex-1"
+                    style={{ background: "var(--color-rule)" }}
+                  />
+                  <span
+                    className="mono grid-surface shrink-0"
+                    style={{ fontSize: "0.5625rem", color: "var(--color-ink-faint)" }}
+                  >
+                    {phase.steps.length}
+                    {phase.totalMs > 0 && ` · ${fmt(phase.totalMs)}`}
+                  </span>
+                </button>
+
+                {!isCollapsed && (
+                  <div className="relative pl-1.5">
+                    {/* The spine. */}
+                    <span
+                      className="absolute"
+                      style={{
+                        left: "0.6875rem",
+                        top: "0.5rem",
+                        bottom: "0.5rem",
+                        width: 1,
+                        background:
+                          "linear-gradient(180deg, var(--color-rule-strong), var(--color-rule) 85%, transparent)",
+                      }}
+                    />
+                    <div className="flex flex-col">
+                      {phase.steps.map((step, si) => (
+                        <Step
+                          key={step.id}
+                          step={step}
+                          maxMs={phase.maxMs}
+                          live={running && isLast && si === phase.steps.length - 1}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 )}
-              </div>
+              </section>
             );
           })}
         </div>
@@ -121,3 +259,123 @@ export function ThinkingPanel({ running }: { running: boolean }) {
     </aside>
   );
 }
+
+function Step({ step, maxMs, live }: { step: ThinkingStep; maxMs: number; live: boolean }) {
+  const [showQuery, setShowQuery] = useState(false);
+  const k = KIND[step.kind] ?? KIND.reasoning;
+  const share = maxMs > 0 && step.durationMs ? step.durationMs / maxMs : 0;
+
+  return (
+    <div className="step-in relative pl-5 py-1">
+      {/* Node on the spine. */}
+      <span
+        className={`absolute rounded-full ${live ? "live-dot" : ""}`}
+        style={{
+          left: "0.3125rem",
+          top: "0.5rem",
+          width: 9,
+          height: 9,
+          background: step.kind === "gate" || step.kind === "error" ? k.color : "var(--color-surface)",
+          border: `1.5px solid ${k.color}`,
+          color: k.color,
+          boxShadow: live ? undefined : `0 0 6px ${k.color}33`,
+        }}
+        title={k.label}
+      />
+
+      <div className="flex items-baseline gap-1.5">
+        <span style={{ fontSize: "0.78125rem", color: "var(--color-ink)", lineHeight: 1.35 }}>
+          {step.label}
+        </span>
+        {step.durationMs !== undefined && (
+          <span
+            className="mono grid-surface ml-auto shrink-0"
+            style={{ fontSize: "0.5625rem", color: "var(--color-ink-faint)" }}
+          >
+            {fmt(step.durationMs)}
+          </span>
+        )}
+      </div>
+
+      {/* Where the time actually went, scaled within this phase. */}
+      {share > 0.08 && (
+        <span
+          className="block mt-1 rounded-full"
+          style={{
+            height: 2,
+            width: `${Math.max(6, share * 100)}%`,
+            background: k.color,
+            opacity: 0.5,
+          }}
+        />
+      )}
+
+      {step.detail && (
+        <p
+          className="mt-0.5"
+          style={{ fontSize: "0.6875rem", color: "var(--color-ink-soft)", lineHeight: 1.45 }}
+        >
+          {step.detail}
+        </p>
+      )}
+
+      {step.query && (
+        <>
+          <button
+            onClick={() => setShowQuery((v) => !v)}
+            className="mono mt-1"
+            style={{ fontSize: "0.5625rem", color: k.color }}
+          >
+            {showQuery ? "hide" : "show"} query
+          </button>
+          {showQuery && (
+            <pre
+              className="mono mt-1 p-2 rounded-md scroll-x whitespace-pre"
+              style={{
+                background: "var(--color-void)",
+                border: `1px solid ${k.color}33`,
+                color: "var(--color-ink-soft)",
+                fontSize: "0.625rem",
+                lineHeight: 1.5,
+              }}
+            >
+              {step.query}
+            </pre>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function Chip({
+  active,
+  onClick,
+  color,
+  label,
+  title,
+}: {
+  active: boolean;
+  onClick: () => void;
+  color: string;
+  label: string;
+  title?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className="mono px-1.5 py-0.5 rounded"
+      style={{
+        fontSize: "0.5625rem",
+        background: active ? `${color}22` : "var(--color-surface-2)",
+        color: active ? color : "var(--color-ink-faint)",
+        border: `1px solid ${active ? `${color}66` : "var(--color-rule)"}`,
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+const fmt = (ms: number) => (ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`);

@@ -1,49 +1,120 @@
 @import "tailwindcss";
 
-/* ---------------------------------------------------------------------------
-   Grapevine surface.
-   Two registers deliberately coexist, per the brief: an editorial register
-   for reading (serif display type, generous measure) and a dense operating
-   register for working (tabular numerals, monospace identifiers, tight rows).
-   --------------------------------------------------------------------------- */
+/* ===========================================================================
+   Grapevine — dark operating surface.
+
+   Design intent: this is an instrument, not a marketing page. Dark because an
+   operator stares at it for hours and because luminous data on a deep ground
+   reads faster than dark data on white. Colour is SEMANTIC throughout — every
+   hue means one thing and only that thing, so a glance at a row tells you its
+   state before you read a word:
+
+     mint    = qualified / our side / approved / passed
+     amber   = a buying signal, or a decision waiting on a human
+     rose    = disqualified / rejected / failed / alarm
+     sky     = a person
+     violet  = a bridge in the graph, or an AI actor
+     slate   = present but unremarkable
+
+   Two registers coexist, as the brief asks: an editorial one for reading
+   (light-weight serif display against near-white) and a dense instrument one
+   for working (tabular monospace numerals, 1px rules, tight rows).
+   =========================================================================== */
 
 @theme {
-  --color-ink: #1c1917;
-  --color-ink-soft: #57534e;
-  --color-ink-faint: #a8a29e;
-  --color-paper: #faf9f7;
-  --color-paper-raised: #ffffff;
-  --color-rule: #e7e5e4;
-  --color-rule-strong: #d6d3d1;
+  /* --- ground ------------------------------------------------------------ */
+  --color-void: #090c12;
+  --color-surface: #11161f;
+  --color-surface-2: #171e2a;
+  --color-surface-3: #1e2736;
+  --color-rule: #222b3a;
+  --color-rule-strong: #334154;
 
-  --color-vine: #3f6212;
-  --color-vine-soft: #ecfccb;
-  --color-tier-a: #166534;
-  --color-tier-b: #a16207;
-  --color-tier-c: #78716c;
-  --color-alarm: #b91c1c;
-  --color-alarm-soft: #fef2f2;
-  --color-signal: #9a3412;
-  --color-signal-soft: #fff7ed;
+  /* --- type ------------------------------------------------------------- */
+  --color-ink: #e9eef7;
+  --color-ink-soft: #94a3b8;
+  --color-ink-faint: #5d6b83;
 
-  --font-display: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  /* --- semantic accents ------------------------------------------------- */
+  --color-vine: #34d399;
+  --color-vine-dim: #0f3d30;
+  --color-vine-soft: rgba(52, 211, 153, 0.13);
+  --color-vine-glow: rgba(52, 211, 153, 0.35);
+
+  --color-signal: #fbbf24;
+  --color-signal-soft: rgba(251, 191, 36, 0.14);
+
+  --color-alarm: #fb7185;
+  --color-alarm-soft: rgba(251, 113, 133, 0.13);
+
+  --color-person: #38bdf8;
+  --color-person-soft: rgba(56, 189, 248, 0.13);
+
+  --color-bridge: #a78bfa;
+  --color-bridge-soft: rgba(167, 139, 250, 0.14);
+
+  --color-tier-a: #34d399;
+  --color-tier-b: #fbbf24;
+  --color-tier-c: #64748b;
+
+  --font-display: "Iowan Old Style", Georgia, "Palatino Linotype", serif;
   --font-sans: ui-sans-serif, -apple-system, "Segoe UI", Helvetica, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
+html,
 body {
-  background: var(--color-paper);
+  background: var(--color-void);
   color: var(--color-ink);
+}
+
+body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  /* Two very faint accent washes, so the ground has depth without texture. */
+  background-image:
+    radial-gradient(900px 420px at 8% -6%, rgba(52, 211, 153, 0.07), transparent 70%),
+    radial-gradient(760px 380px at 92% -4%, rgba(56, 189, 248, 0.055), transparent 72%);
+  background-attachment: fixed;
 }
+
+/* --- surfaces ------------------------------------------------------------ */
+
+.surface {
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: 10px;
+  /* A 1px top highlight is what separates a panel from a painted rectangle. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.surface-2 {
+  background: var(--color-surface-2);
+}
+
+.surface-flat {
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: 8px;
+}
+
+.glass {
+  background: rgba(17, 22, 31, 0.82);
+  backdrop-filter: blur(14px) saturate(140%);
+  border-bottom: 1px solid var(--color-rule);
+}
+
+/* --- type registers ------------------------------------------------------ */
 
 .display {
   font-family: var(--font-display);
-  letter-spacing: -0.015em;
+  font-weight: 400;
+  letter-spacing: -0.012em;
+  color: #f4f7fc;
 }
 
-/* Dense grid surface: identifiers and figures must align column-to-column. */
 .grid-surface {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
@@ -56,33 +127,174 @@ body {
 
 .rule-label {
   font-size: 0.6875rem;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--color-ink-faint);
   font-weight: 600;
 }
 
-/* Confidence meter — a figure alone reads as precision it does not have, so
-   the bar carries the same number visually. */
+/* --- controls ------------------------------------------------------------ */
+
+input,
+textarea,
+select {
+  background: var(--color-void);
+  color: var(--color-ink);
+  border-color: var(--color-rule-strong);
+  transition: border-color 140ms, box-shadow 140ms;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-ink-faint);
+}
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--color-vine);
+  box-shadow: 0 0 0 3px var(--color-vine-soft);
+}
+
+button {
+  transition: filter 140ms, background 140ms, border-color 140ms, transform 90ms;
+}
+button:not(:disabled):hover {
+  filter: brightness(1.12);
+}
+button:not(:disabled):active {
+  transform: translateY(0.5px);
+}
+
+/* The primary action should look like the primary action. */
+.btn-primary {
+  background: linear-gradient(180deg, #3ee0a6 0%, #24b482 100%);
+  color: #05251b;
+  font-weight: 600;
+  border: none;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.22) inset, 0 2px 10px rgba(52, 211, 153, 0.22);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--color-vine);
+  border: 1px solid rgba(52, 211, 153, 0.45);
+}
+.btn-quiet {
+  background: var(--color-surface-2);
+  color: var(--color-ink-soft);
+  border: 1px solid var(--color-rule-strong);
+}
+
+a {
+  color: var(--color-person);
+  text-decoration-color: rgba(56, 189, 248, 0.4);
+}
+
+/* --- meters -------------------------------------------------------------- */
+
 .meter {
   height: 4px;
-  border-radius: 2px;
+  border-radius: 999px;
   background: var(--color-rule);
   overflow: hidden;
 }
 .meter > span {
   display: block;
   height: 100%;
-  border-radius: 2px;
+  border-radius: 999px;
+  box-shadow: 0 0 8px currentColor;
+}
+
+/* --- rows ---------------------------------------------------------------- */
+
+.row-hover:hover {
+  background: var(--color-surface-2);
+}
+.row-active {
+  background: linear-gradient(90deg, var(--color-vine-soft), transparent 70%);
+  box-shadow: inset 2px 0 0 var(--color-vine);
+}
+
+/* --- scrollbars ---------------------------------------------------------- */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-rule-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-rule-strong);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #44546b;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .scroll-x {
   overflow-x: auto;
-  scrollbar-width: thin;
 }
 
+/* --- motion -------------------------------------------------------------- */
+
 @keyframes pulse-in {
-  from { opacity: 0; transform: translateY(2px); }
-  to   { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
-.step-in { animation: pulse-in 180ms ease-out; }
+.step-in {
+  animation: pulse-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--color-vine-glow);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(52, 211, 153, 0);
+  }
+}
+.live-dot {
+  animation: breathe 1.8s ease-in-out infinite;
+}
+
+@keyframes sweep {
+  from {
+    background-position: -180% 0;
+  }
+  to {
+    background-position: 180% 0;
+  }
+}
+/* Used on the stepper's in-flight stage. */
+.working {
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(251, 191, 36, 0.22) 50%,
+    transparent 80%
+  );
+  background-size: 180% 100%;
+  animation: sweep 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step-in,
+  .live-dot,
+  .working {
+    animation: none;
+  }
+}

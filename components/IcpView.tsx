@@ -1,6 +1,6 @@
 "use client";
 
-import { Citations, Confidence } from "./Confidence";
+import { Citations, Confidence, ConfidenceDial } from "./Confidence";
 import type { IcpDefinition, IcpExpansion } from "@/lib/types";
 
 function Field({
@@ -55,7 +55,7 @@ export function IcpView({
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="border rounded-lg bg-white" style={{ borderColor: "var(--color-rule)" }}>
+      <section className="surface" style={{ borderColor: "var(--color-rule)" }}>
         <header
           className="px-4 py-3 border-b flex items-start justify-between gap-4"
           style={{ borderColor: "var(--color-rule)" }}
@@ -68,12 +68,15 @@ export function IcpView({
               {icp.id} · {icp.status}
             </p>
           </div>
-          <div className="text-right shrink-0">
-            <Confidence value={icp.overallConfidence} label="overall" />
-            <p className="mt-1" style={{ fontSize: "0.6875rem", color: "var(--color-ink-faint)", maxWidth: "15rem" }}>
-              Mean of every field. A low number here is the engine telling you the
-              intake was thin, not that the profile is wrong.
+          <div className="flex items-center gap-3 shrink-0">
+            <p
+              className="text-right"
+              style={{ fontSize: "0.6875rem", color: "var(--color-ink-faint)", maxWidth: "13rem" }}
+            >
+              Mean of every field. A low reading is the engine telling you the intake was
+              thin — not that the profile is wrong.
             </p>
+            <ConfidenceDial value={icp.overallConfidence} />
           </div>
         </header>
 
@@ -212,7 +215,7 @@ export function IcpView({
 
         <footer
           className="px-4 py-3 border-t flex items-center justify-between gap-4"
-          style={{ borderColor: "var(--color-rule)", background: "var(--color-paper)" }}
+          style={{ borderColor: "var(--color-rule)", background: "var(--color-surface-2)" }}
         >
           <p style={{ fontSize: "0.75rem", color: "var(--color-ink-soft)", maxWidth: "34rem" }}>
             Discovery is gated on your approval. Nothing is searched for, enriched or
@@ -221,12 +224,8 @@ export function IcpView({
           <button
             onClick={onApprove}
             disabled={busy || icp.status === "approved"}
-            className="px-3.5 py-2 rounded font-medium disabled:opacity-50"
-            style={{
-              background: icp.status === "approved" ? "var(--color-vine-soft)" : "var(--color-vine)",
-              color: icp.status === "approved" ? "var(--color-vine)" : "white",
-              fontSize: "0.875rem",
-            }}
+            className={`${icp.status === "approved" ? "btn-ghost" : "btn-primary"} px-3.5 py-2 rounded-md disabled:opacity-50`}
+            style={{ fontSize: "0.875rem" }}
           >
             {icp.status === "approved" ? "✓ Approved" : "Approve profile"}
           </button>
@@ -234,7 +233,7 @@ export function IcpView({
       </section>
 
       {expansions.length > 0 && (
-        <section className="border rounded-lg bg-white" style={{ borderColor: "var(--color-rule)" }}>
+        <section className="surface" style={{ borderColor: "var(--color-rule)" }}>
           <header className="px-4 py-3 border-b" style={{ borderColor: "var(--color-rule)" }}>
             <h2 className="display" style={{ fontSize: "1.25rem" }}>
               Adjacent segments

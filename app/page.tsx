@@ -332,13 +332,35 @@ export default function Workspace() {
     { key: "billing", label: "Usage & billing", glyph: "◧" },
   ];
 
+  // The stepper doubles as navigation: a viewer should be able to see where a
+  // run is AND click straight to it, rather than reading a progress bar and
+  // then hunting for the matching rail item.
   const stages = [
-    { label: "Intake", done: Boolean(icp) },
-    { label: "Approved", done: approvedIcp },
-    { label: "Accounts", done: companies.length > 0, active: busy === "Searching for accounts" },
-    { label: "Buyers", done: people.length > 0, active: busy === "Finding and enriching buyers" },
-    { label: "Outreach", done: messages.length > 0, active: busy === "Drafting and reviewing sequences" },
-    { label: "Approved & sent", done: dispatches.length > 0 },
+    { label: "Intake", done: Boolean(icp), onClick: () => setView("intake") },
+    { label: "Approved", done: approvedIcp, onClick: () => setView("intake") },
+    {
+      label: "Accounts",
+      done: companies.length > 0,
+      active: busy === "Searching for accounts",
+      onClick: companies.length ? () => setView("accounts") : undefined,
+    },
+    {
+      label: "Buyers",
+      done: people.length > 0,
+      active: busy === "Finding and enriching buyers",
+      onClick: people.length ? () => setView("buyers") : undefined,
+    },
+    {
+      label: "Outreach",
+      done: messages.length > 0,
+      active: busy === "Drafting and reviewing sequences",
+      onClick: messages.length ? () => setView("outreach") : undefined,
+    },
+    {
+      label: "Approved & sent",
+      done: dispatches.length > 0,
+      onClick: leads.length ? () => setView("pipeline") : undefined,
+    },
   ];
 
   const commands: Command[] = [
@@ -390,7 +412,7 @@ export default function Workspace() {
 
             {view === "intake" && (
               <div className="flex flex-col gap-5" style={{ maxWidth: "60rem" }}>
-                <section className="border rounded-lg bg-white" style={{ borderColor: "var(--color-rule)" }}>
+                <section className="surface" style={{ borderColor: "var(--color-rule)" }}>
                   <header
                     className="px-4 py-3 border-b flex items-center justify-between gap-3"
                     style={{ borderColor: "var(--color-rule)" }}
@@ -449,8 +471,8 @@ export default function Workspace() {
                       <button
                         onClick={runIntake}
                         disabled={Boolean(busy) || description.trim().length < 40}
-                        className="px-4 py-2 rounded font-medium disabled:opacity-40"
-                        style={{ background: "var(--color-vine)", color: "white", fontSize: "0.875rem" }}
+                        className="btn-primary px-4 py-2 rounded-md disabled:opacity-40"
+                        style={{ fontSize: "0.875rem" }}
                       >
                         {busy === "Inferring ICP" ? "Inferring…" : "Infer ICP"}
                       </button>
@@ -681,7 +703,7 @@ function ActionBar({
 }) {
   return (
     <section
-      className="border rounded-lg bg-white px-4 py-3 flex items-center justify-between gap-4 flex-wrap"
+      className="surface px-4 py-3 flex items-center justify-between gap-4 flex-wrap"
       style={{ borderColor: "var(--color-rule)" }}
     >
       <div style={{ maxWidth: "46rem" }}>
@@ -696,13 +718,8 @@ function ActionBar({
             key={a.label}
             onClick={a.onClick}
             disabled={a.disabled}
-            className="px-3.5 py-2 rounded font-medium disabled:opacity-40"
-            style={{
-              background: a.secondary ? "transparent" : "var(--color-vine)",
-              color: a.secondary ? "var(--color-vine)" : "white",
-              border: a.secondary ? "1px solid var(--color-vine)" : "none",
-              fontSize: "0.875rem",
-            }}
+            className={`${a.secondary ? "btn-ghost" : "btn-primary"} px-3.5 py-2 rounded-md disabled:opacity-40`}
+            style={{ fontSize: "0.875rem" }}
           >
             {a.label}
           </button>
@@ -723,7 +740,7 @@ function BuyerGrid({
 }) {
   const companyOf = (id: string) => companies.find((c) => c.id === id);
   return (
-    <section className="border rounded-lg bg-white" style={{ borderColor: "var(--color-rule)" }}>
+    <section className="surface" style={{ borderColor: "var(--color-rule)" }}>
       <div className="scroll-x">
         <table className="w-full grid-surface" style={{ fontSize: "0.8125rem", minWidth: "58rem" }}>
           <thead>
@@ -744,7 +761,7 @@ function BuyerGrid({
                 <tr
                   key={p.id}
                   onClick={() => onSelect(p.id)}
-                  className="border-b cursor-pointer hover:bg-[var(--color-paper)]"
+                  className="border-b cursor-pointer row-hover"
                   style={{ borderColor: "var(--color-rule)" }}
                 >
                   <td className="px-3 py-2 align-top">
@@ -816,7 +833,7 @@ function AgentRoom({ band, onRun, busy }: { band: any; onRun: () => void; busy: 
         actions={[{ label: "Run collaboration", onClick: onRun, disabled: busy }]}
       />
 
-      <section className="border rounded-lg bg-white" style={{ borderColor: "var(--color-rule)" }}>
+      <section className="surface" style={{ borderColor: "var(--color-rule)" }}>
         <header className="px-4 py-3 border-b flex items-center gap-3 flex-wrap" style={{ borderColor: "var(--color-rule)" }}>
           {(band?.agents ?? []).map((a: any) => (
             <span key={a.role} className="flex items-center gap-1.5" style={{ fontSize: "0.8125rem" }}>
@@ -884,7 +901,7 @@ function BillingView({ billing, state, onTopUp }: { billing: any; state: any; on
         }
         actions={[{ label: "+300 credits", onClick: onTopUp }]}
       />
-      <section className="border rounded-lg bg-white px-4 py-3" style={{ borderColor: "var(--color-rule)" }}>
+      <section className="surface px-4 py-3" style={{ borderColor: "var(--color-rule)" }}>
         <div className="flex gap-6 flex-wrap grid-surface">
           {l && (
             <>
@@ -899,7 +916,7 @@ function BillingView({ billing, state, onTopUp }: { billing: any; state: any; on
             ))}
         </div>
       </section>
-      <section className="border rounded-lg bg-white" style={{ borderColor: "var(--color-rule)" }}>
+      <section className="surface" style={{ borderColor: "var(--color-rule)" }}>
         <header className="px-4 py-2.5 border-b" style={{ borderColor: "var(--color-rule)" }}>
           <span className="rule-label">Metered events</span>
         </header>

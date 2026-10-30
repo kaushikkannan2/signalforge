@@ -43,16 +43,37 @@ export function Rail({
 }) {
   return (
     <nav
-      className="flex flex-col gap-0.5 p-2 border-r shrink-0"
-      style={{ borderColor: "var(--color-rule)", width: "13.5rem", background: "var(--color-paper-raised)" }}
+      className="flex flex-col gap-0.5 p-2.5 border-r shrink-0"
+      style={{
+        borderColor: "var(--color-rule)",
+        width: "14rem",
+        background: "linear-gradient(180deg, #121823 0%, #0c1017 100%)",
+      }}
     >
-      <div className="px-2 py-2.5 mb-1">
-        <div className="display" style={{ fontSize: "1.0625rem", letterSpacing: "-0.02em" }}>
-          Grapevine
-        </div>
-        <div className="rule-label" style={{ fontSize: "0.5625rem" }}>
-          GTM engine
-        </div>
+      <div className="px-1.5 py-3 mb-2 flex items-center gap-2.5">
+        <span
+          className="shrink-0 rounded-md flex items-center justify-center"
+          style={{
+            width: 28,
+            height: 28,
+            background: "linear-gradient(145deg, #3ee0a6, #1d9b74)",
+            boxShadow: "0 2px 10px rgba(52,211,153,0.35)",
+            color: "#042018",
+            fontWeight: 700,
+            fontSize: "0.9375rem",
+            fontFamily: "var(--font-display)",
+          }}
+        >
+          G
+        </span>
+        <span>
+          <span className="display block" style={{ fontSize: "1.0625rem", lineHeight: 1.1 }}>
+            Grapevine
+          </span>
+          <span className="rule-label" style={{ fontSize: "0.5625rem" }}>
+            GTM engine
+          </span>
+        </span>
       </div>
 
       {items.map((item) => {
@@ -64,9 +85,12 @@ export function Rail({
             onClick={() => !locked && onSelect(item.key)}
             disabled={locked}
             title={item.lockedReason}
-            className="flex items-center gap-2 px-2 py-1.5 rounded text-left transition-colors"
+            className="flex items-center gap-2.5 px-2 py-2 rounded-md text-left relative"
             style={{
-              background: isActive ? "var(--color-vine-soft)" : "transparent",
+              background: isActive
+                ? "linear-gradient(90deg, var(--color-vine-soft), transparent)"
+                : "transparent",
+              boxShadow: isActive ? "inset 2px 0 0 var(--color-vine)" : undefined,
               color: locked
                 ? "var(--color-ink-faint)"
                 : isActive
@@ -75,6 +99,7 @@ export function Rail({
               fontSize: "0.8125rem",
               fontWeight: isActive ? 600 : 400,
               cursor: locked ? "not-allowed" : "pointer",
+              transition: "background 150ms, color 150ms",
             }}
           >
             <span className="mono shrink-0" style={{ width: "1rem", textAlign: "center" }}>
@@ -115,6 +140,8 @@ export interface Stage {
   done: boolean;
   active?: boolean;
   blocked?: boolean;
+  /** Jumping to the view this stage represents — the stepper is navigation. */
+  onClick?: () => void;
 }
 
 /** Horizontal run progress. Gives a viewer the narrative without narration. */
@@ -132,27 +159,33 @@ export function Stepper({ stages }: { stages: Stage[] }) {
               }}
             />
           )}
-          <span
-            className="rule-label px-1.5 py-0.5 rounded whitespace-nowrap"
+          <button
+            onClick={s.onClick}
+            disabled={!s.onClick}
+            className={`rule-label px-2 py-1 rounded-md whitespace-nowrap ${s.active ? "working" : ""}`}
             style={{
               background: s.active
                 ? "var(--color-signal-soft)"
                 : s.done
                   ? "var(--color-vine-soft)"
-                  : "transparent",
+                  : "var(--color-surface-2)",
               color: s.active
                 ? "var(--color-signal)"
                 : s.done
                   ? "var(--color-vine)"
                   : "var(--color-ink-faint)",
               border: `1px solid ${
-                s.active ? "var(--color-signal)" : s.done ? "transparent" : "var(--color-rule)"
+                s.active
+                  ? "rgba(251,191,36,0.5)"
+                  : s.done
+                    ? "rgba(52,211,153,0.35)"
+                    : "var(--color-rule)"
               }`,
             }}
           >
             {s.done ? "✓ " : s.active ? "◆ " : ""}
             {s.label}
-          </span>
+          </button>
         </div>
       ))}
     </div>
@@ -179,8 +212,7 @@ export function TopBar({
   const live = Object.entries(providers).filter(([, v]) => v);
   return (
     <header
-      className="border-b px-4 py-2 flex items-center gap-4 flex-wrap shrink-0"
-      style={{ borderColor: "var(--color-rule)", background: "var(--color-paper-raised)" }}
+      className="glass px-4 py-2.5 flex items-center gap-4 flex-wrap shrink-0 z-10"
     >
       <Stepper stages={stages} />
 
@@ -188,8 +220,8 @@ export function TopBar({
         {busyLabel && (
           <span className="flex items-center gap-1.5" style={{ color: "var(--color-signal)" }}>
             <span
-              className="inline-block w-1.5 h-1.5 rounded-full"
-              style={{ background: "var(--color-signal)", boxShadow: "0 0 0 3px var(--color-signal-soft)" }}
+              className="inline-block w-1.5 h-1.5 rounded-full live-dot"
+              style={{ background: "var(--color-signal)", color: "var(--color-signal)" }}
             />
             {busyLabel}
           </span>
@@ -267,9 +299,10 @@ export function Toasts({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id:
         <div
           key={t.id}
           onClick={() => onDismiss(t.id)}
-          className="step-in rounded border px-3 py-2 cursor-pointer shadow-sm"
+          className="step-in rounded-lg border px-3 py-2.5 cursor-pointer"
           style={{
-            background: "var(--color-paper-raised)",
+            background: "linear-gradient(180deg, #1a212e, #141a25)",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
             borderColor:
               t.kind === "error"
                 ? "var(--color-alarm)"
@@ -338,13 +371,18 @@ export function CommandPalette({ commands }: { commands: Command[] }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center pt-28"
-      style={{ background: "rgba(28,25,23,0.35)" }}
+      style={{ background: "rgba(3,6,12,0.66)" }}
       onClick={() => setOpen(false)}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         className="rounded-lg border shadow-lg overflow-hidden"
-        style={{ background: "var(--color-paper-raised)", borderColor: "var(--color-rule-strong)", width: "34rem" }}
+        style={{
+          background: "linear-gradient(180deg, #1a212e 0%, #11161f 100%)",
+          borderColor: "var(--color-rule-strong)",
+          width: "34rem",
+          boxShadow: "0 24px 70px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)",
+        }}
       >
         <input
           autoFocus
@@ -363,7 +401,7 @@ export function CommandPalette({ commands }: { commands: Command[] }) {
                 c.run();
                 setOpen(false);
               }}
-              className="w-full text-left px-4 py-2 flex items-center gap-3 disabled:opacity-40 hover:bg-[var(--color-paper)]"
+              className="w-full text-left px-4 py-2.5 flex items-center gap-3 disabled:opacity-40 row-hover"
             >
               <span style={{ fontSize: "0.875rem" }}>{c.label}</span>
               {c.hint && (
@@ -395,7 +433,7 @@ export function EmptyState({
 }) {
   return (
     <div
-      className="border rounded-lg bg-white px-8 py-12 text-center"
+      className="surface px-8 py-12 text-center"
       style={{ borderColor: "var(--color-rule)" }}
     >
       <h3 className="display" style={{ fontSize: "1.125rem" }}>
@@ -411,8 +449,8 @@ export function EmptyState({
         <button
           onClick={action.onClick}
           disabled={action.disabled}
-          className="mt-4 px-4 py-2 rounded font-medium disabled:opacity-40"
-          style={{ background: "var(--color-vine)", color: "white", fontSize: "0.875rem" }}
+          className="btn-primary mt-4 px-4 py-2 rounded-md disabled:opacity-40"
+          style={{ fontSize: "0.875rem" }}
         >
           {action.label}
         </button>

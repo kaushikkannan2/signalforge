@@ -39,12 +39,12 @@ interface GEdgeLite {
 }
 
 const LABEL_STYLE: Record<string, { fill: string; r: number; ring?: string }> = {
-  Company: { fill: "#3f6212", r: 11 },
-  Person: { fill: "#1d4ed8", r: 8 },
-  Signal: { fill: "#9a3412", r: 6 },
-  Competitor: { fill: "#b91c1c", r: 9 },
-  Product: { fill: "#7c3aed", r: 7 },
-  Lead: { fill: "#a8a29e", r: 5 },
+  Company: { fill: "#34d399", r: 11 },
+  Person: { fill: "#38bdf8", r: 8 },
+  Signal: { fill: "#fbbf24", r: 6 },
+  Competitor: { fill: "#fb7185", r: 9 },
+  Product: { fill: "#a78bfa", r: 7 },
+  Lead: { fill: "#64748b", r: 5 },
 };
 
 const EDGE_LABEL: Record<string, string> = {
@@ -169,7 +169,7 @@ export function Constellation({
   if (!subNodes.length) {
     return (
       <div
-        className="border rounded-lg bg-white flex items-center justify-center"
+        className="surface flex items-center justify-center"
         style={{ borderColor: "var(--color-rule)", height }}
       >
         <p style={{ fontSize: "0.8125rem", color: "var(--color-ink-faint)" }}>
@@ -183,7 +183,7 @@ export function Constellation({
   const focus = subNodes.find((n) => n.depth === 0);
 
   return (
-    <div className="border rounded-lg bg-white overflow-hidden" style={{ borderColor: "var(--color-rule)" }}>
+    <div className="surface overflow-hidden" style={{ borderColor: "var(--color-rule)" }}>
       <div
         className="px-3 py-2 border-b flex items-center gap-3 flex-wrap"
         style={{ borderColor: "var(--color-rule)" }}
@@ -206,11 +206,11 @@ export function Constellation({
         </span>
       </div>
 
-      <svg width="100%" viewBox={`0 0 ${width} ${height}`} style={{ display: "block", background: "var(--color-paper)" }}>
+      <svg width="100%" viewBox={`0 0 ${width} ${height}`} style={{ display: "block", background: "var(--color-surface-2)" }}>
         <defs>
           <radialGradient id="glow">
-            <stop offset="0%" stopColor="#3f6212" stopOpacity="0.18" />
-            <stop offset="100%" stopColor="#3f6212" stopOpacity="0" />
+            <stop offset="0%" stopColor="#34d399" stopOpacity="0.16" />
+            <stop offset="100%" stopColor="#34d399" stopOpacity="0" />
           </radialGradient>
         </defs>
 
@@ -229,7 +229,7 @@ export function Constellation({
                 y1={a.y}
                 x2={b.x}
                 y2={b.y}
-                stroke={highlighted ? "var(--color-vine)" : isBridge ? "#7c3aed" : "var(--color-rule-strong)"}
+                stroke={highlighted ? "var(--color-vine)" : isBridge ? "var(--color-bridge)" : "var(--color-rule-strong)"}
                 strokeWidth={highlighted ? 1.8 : isBridge ? 1.4 : 1}
                 strokeDasharray={isBridge ? "4 3" : undefined}
                 opacity={hover && !highlighted ? 0.25 : 0.85}
@@ -272,7 +272,7 @@ export function Constellation({
               <circle
                 r={style.r}
                 fill={style.fill}
-                stroke="white"
+                stroke="#0b0f16"
                 strokeWidth={1.5}
                 opacity={n.props.disqualified ? 0.4 : 1}
               />

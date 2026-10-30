@@ -51,7 +51,7 @@ export function HitlQueue({
   const pending = messages.filter((m) => m.status === "pending_approval").length;
 
   return (
-    <section className="border rounded-lg bg-white" style={{ borderColor: "var(--color-rule)" }}>
+    <section className="surface" style={{ borderColor: "var(--color-rule)" }}>
       <header className="px-4 py-3 border-b" style={{ borderColor: "var(--color-rule)" }}>
         <h2 className="display" style={{ fontSize: "1.25rem" }}>
           Approval queue
@@ -230,8 +230,8 @@ export function HitlQueue({
                                 setRejecting(null);
                                 setReason("");
                               }}
-                              className="px-2.5 py-1 rounded"
-                              style={{ background: "var(--color-alarm)", color: "white", fontSize: "0.8125rem" }}
+                              className="px-2.5 py-1 rounded-md"
+                              style={{ background: "var(--color-alarm)", color: "#2a0810", fontWeight: 600, fontSize: "0.8125rem" }}
                             >
                               Confirm reject
                             </button>
@@ -248,8 +248,8 @@ export function HitlQueue({
                                     setEditing(null);
                                   }}
                                   disabled={busy}
-                                  className="px-2.5 py-1 rounded disabled:opacity-50"
-                                  style={{ background: "var(--color-vine)", color: "white", fontSize: "0.8125rem" }}
+                                  className="btn-primary px-2.5 py-1 rounded-md disabled:opacity-50"
+                                  style={{ fontSize: "0.8125rem" }}
                                 >
                                   Save &amp; approve
                                 </button>
@@ -267,8 +267,8 @@ export function HitlQueue({
                                   <button
                                     onClick={() => onDecide(m.id, "approve")}
                                     disabled={busy}
-                                    className="px-2.5 py-1 rounded disabled:opacity-50"
-                                    style={{ background: "var(--color-vine)", color: "white", fontSize: "0.8125rem" }}
+                                    className="btn-primary px-2.5 py-1 rounded-md disabled:opacity-50"
+                                    style={{ fontSize: "0.8125rem" }}
                                   >
                                     Approve
                                   </button>

@@ -155,7 +155,7 @@ export function AccountGrid({
               className="border-b"
               style={{ borderColor: "var(--color-rule)", color: "var(--color-ink-faint)" }}
             >
-              <th className="text-left font-semibold px-3 py-2 w-16">Fit</th>
+              <th className="text-center font-semibold px-3 py-2 w-16">Fit</th>
               <th className="text-left font-semibold px-2 py-2 w-16">Tier</th>
               <th className="text-left font-semibold px-2 py-2">Account</th>
               <th className="text-left font-semibold px-2 py-2 w-28">NAICS</th>
@@ -185,7 +185,9 @@ export function AccountGrid({
                   }}
                 >
                   <td className={`px-3 ${pad} align-top`} title={arithmetic}>
-                    <ScoreRing value={c.fit.total} tier={c.fit.tier} muted={c.disqualified} />
+                    <span className="flex justify-center">
+                      <ScoreRing value={c.fit.total} tier={c.fit.tier} muted={c.disqualified} />
+                    </span>
                   </td>
                   <td className={`px-2 ${pad} align-top`}>
                     <TierBadge tier={c.fit.tier} />
@@ -231,7 +233,7 @@ export function AccountGrid({
                     {c.naics}
                   </td>
                   <td
-                    className="px-2 py-2 align-top text-right mono"
+                    className="px-2 py-2 align-top text-right mono grid-surface"
                     style={{ color: c.headcount ? undefined : "var(--color-ink-faint)" }}
                     title={c.headcount ? undefined : "Not stated in any source — scored as unknown, not guessed"}
                   >
@@ -243,8 +245,12 @@ export function AccountGrid({
                   <td className="px-2 py-2 align-top">
                     {mine.length ? (
                       <span
-                        className="mono px-1.5 py-0.5 rounded"
-                        style={{ background: "var(--color-signal-soft)", color: "var(--color-signal)" }}
+                        className="mono grid-surface px-1.5 py-0.5 rounded inline-block text-center"
+                        style={{
+                          background: "var(--color-signal-soft)",
+                          color: "var(--color-signal)",
+                          minWidth: "3.25rem",
+                        }}
                         title={mine.map((s) => `+${s.intentWeight} ${s.headline}`).join("\n")}
                       >
                         {mine.length} · +{mine.reduce((s, x) => s + x.intentWeight, 0)}

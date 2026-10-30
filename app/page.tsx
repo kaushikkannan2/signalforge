@@ -911,7 +911,7 @@ function BuyerGrid({
               <th className="text-left font-semibold px-2 py-2 w-40">Account</th>
               <th className="text-left font-semibold px-2 py-2">Email</th>
               <th className="text-left font-semibold px-2 py-2 w-44">Method</th>
-              <th className="text-left font-semibold px-2 py-2 w-16">MX</th>
+              <th className="text-center font-semibold px-2 py-2 w-16">MX</th>
               <th className="text-left font-semibold px-3 py-2 w-32">Sources</th>
             </tr>
           </thead>
@@ -936,7 +936,7 @@ function BuyerGrid({
                       <span style={{ fontSize: "0.75rem" }}>{c?.name}</span>
                     </div>
                   </td>
-                  <td className="px-2 py-2 align-top mono" style={{ color: e.email ? undefined : "var(--color-ink-faint)" }}>
+                  <td className="px-2 py-2 align-top mono truncate" style={{ maxWidth: "15rem", color: e.email ? undefined : "var(--color-ink-faint)" }}>
                     {e.email ?? "unresolved"}
                   </td>
                   <td className="px-2 py-2 align-top">
@@ -960,7 +960,7 @@ function BuyerGrid({
                       </span>
                     )}
                   </td>
-                  <td className="px-2 py-2 align-top mono" title={e.mxRecords?.join(", ")}>
+                  <td className="px-2 py-2 align-top mono text-center" title={e.mxRecords?.join(", ")}>
                     {e.mxValid ? (
                       <span style={{ color: "var(--color-tier-a)" }}>✓</span>
                     ) : (
@@ -1088,7 +1088,7 @@ function BillingView({ billing, state, onTopUp }: { billing: any; state: any; on
               {(billing?.events ?? []).map((e: any) => (
                 <tr key={e.id} className="border-b" style={{ borderColor: "var(--color-rule)" }}>
                   <td className="px-3 py-1.5 mono">{e.eventName}</td>
-                  <td className="px-2 py-1.5 mono text-right">−{e.credits}</td>
+                  <td className="px-2 py-1.5 mono text-right grid-surface">−{e.credits}</td>
                   <td className="px-2 py-1.5">
                     <span
                       className="rule-label px-1.5 rounded"

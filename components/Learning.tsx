@@ -222,7 +222,13 @@ export function Learning({ data, onRefresh }: { data: LearningData | null; onRef
                   </span>
                 </div>
                 <PosteriorChart posteriors={arms} />
-                <table className="w-full grid-surface mt-1" style={{ fontSize: "0.6875rem" }}>
+                <table className="w-full grid-surface mt-1" style={{ fontSize: "0.6875rem", tableLayout: "fixed" }}>
+                  <colgroup>
+                    <col />
+                    <col style={{ width: "3.25rem" }} />
+                    <col style={{ width: "3.25rem" }} />
+                    <col style={{ width: "3.25rem" }} />
+                  </colgroup>
                   <tbody>
                     {arms.map((a) => (
                       <tr key={a.arm} className="border-t" style={{ borderColor: "var(--color-rule)" }}>
@@ -233,13 +239,13 @@ export function Learning({ data, onRefresh }: { data: LearningData | null; onRef
                           />
                           <span className="mono">{a.arm.replace("|", " · ")}</span>
                         </td>
-                        <td className="py-1 text-right mono" title="posterior mean">
+                        <td className="py-1 text-right mono grid-surface" title="posterior mean">
                           {a.mean.toFixed(2)}
                         </td>
-                        <td className="py-1 text-right mono" style={{ color: "var(--color-ink-faint)" }} title="approximate 95% interval">
+                        <td className="py-1 text-right mono grid-surface" style={{ color: "var(--color-ink-faint)" }} title="approximate 95% interval">
                           ±{((a.ciHigh - a.ciLow) / 2).toFixed(2)}
                         </td>
-                        <td className="py-1 text-right mono" style={{ color: "var(--color-ink-faint)" }}>
+                        <td className="py-1 text-right mono grid-surface" style={{ color: "var(--color-ink-faint)" }}>
                           {a.rewards}/{a.pulls}
                         </td>
                       </tr>

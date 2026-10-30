@@ -246,21 +246,32 @@ export function IcpView({
           preview={`${icp.personas.value.map((p) => p.title).join(", ")} · ${triggers.length} triggers`}
         >
           <Field label="Buyer personas" rationale={icp.personas.rationale}>
-            <div className="flex flex-col gap-2">
+            {/*
+              Grid, not flex. As a flex row the seniority badge and the title
+              both varied in width, so "measured on…" started at a different x
+              on every line and the column read as a ragged mess. Fixed columns
+              give the three fields a shared left edge.
+            */}
+            <div className="flex flex-col gap-1.5">
               {icp.personas.value.map((p) => (
-                <div key={p.title} className="flex items-baseline gap-2">
+                <div
+                  key={p.title}
+                  className="grid items-baseline gap-x-3"
+                  style={{ gridTemplateColumns: "4.5rem minmax(9rem, 12rem) 1fr" }}
+                >
                   <span
-                    className="rule-label shrink-0 px-1.5 rounded"
+                    className="rule-label rounded text-center"
                     style={{
                       background: "var(--color-steel-soft)",
                       color: "var(--color-steel-blue)",
                       fontSize: "0.5625rem",
+                      padding: "0.125rem 0",
                     }}
                   >
                     {p.seniority}
                   </span>
-                  <span style={{ fontWeight: 600 }}>{p.title}</span>
-                  <span style={{ fontSize: "0.75rem", color: "var(--color-ink-soft)" }}>
+                  <span style={{ fontWeight: 600, lineHeight: 1.4 }}>{p.title}</span>
+                  <span style={{ fontSize: "0.75rem", color: "var(--color-ink-soft)", lineHeight: 1.45 }}>
                     measured on {p.jobToBeDone.charAt(0).toLowerCase()}
                     {p.jobToBeDone.slice(1)}
                   </span>
@@ -269,17 +280,27 @@ export function IcpView({
             </div>
           </Field>
           <Field label="Trigger events — ranked by predictive weight" rationale={icp.triggerEvents.rationale}>
+            {/* "+8" and "+16" differ by a digit, so a shrink-to-fit pill
+                shifted every label. Fixed column, right-aligned figure. */}
             <div className="flex flex-col gap-1.5">
               {triggers.map((t) => (
-                <div key={t.label} className="flex gap-2.5 items-start">
+                <div
+                  key={t.label}
+                  className="grid items-baseline gap-x-2.5"
+                  style={{ gridTemplateColumns: "2.5rem 1fr" }}
+                >
                   <span
-                    className="mono shrink-0 px-1.5 rounded grid-surface"
-                    style={{ background: "var(--color-molten-soft)", color: "var(--color-molten)" }}
+                    className="mono rounded grid-surface text-center"
+                    style={{
+                      background: "var(--color-molten-soft)",
+                      color: "var(--color-molten)",
+                      padding: "0.0625rem 0",
+                    }}
                     title={`Intent weight out of 30 — ${t.buyingImplication}`}
                   >
                     +{t.intentWeight}
                   </span>
-                  <span>
+                  <span style={{ lineHeight: 1.45 }}>
                     {t.label}
                     <span style={{ color: "var(--color-ink-faint)" }}> — {t.buyingImplication}</span>
                   </span>
@@ -297,9 +318,15 @@ export function IcpView({
           <Field label="Hard disqualifiers" rationale={icp.negativeSignals.rationale}>
             <ul className="flex flex-col gap-1">
               {icp.negativeSignals.value.map((n) => (
-                <li key={n} className="flex gap-2 items-start">
-                  <span style={{ color: "var(--color-quench)" }}>✕</span>
-                  <span>{n}</span>
+                <li
+                  key={n}
+                  className="grid items-baseline gap-x-2"
+                  style={{ gridTemplateColumns: "1rem 1fr" }}
+                >
+                  <span className="text-center" style={{ color: "var(--color-quench)" }}>
+                    ✕
+                  </span>
+                  <span style={{ lineHeight: 1.45 }}>{n}</span>
                 </li>
               ))}
             </ul>
@@ -355,7 +382,10 @@ export function IcpView({
                 <div className="flex items-start justify-between gap-4">
                   <h3 style={{ fontSize: "0.9375rem", fontWeight: 600 }}>{e.segmentName}</h3>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="mono" style={{ color: "var(--color-ink-faint)", fontSize: "0.6875rem" }}>
+                    <span
+                      className="mono grid-surface text-right"
+                      style={{ color: "var(--color-ink-faint)", fontSize: "0.6875rem", minWidth: "3.5rem" }}
+                    >
                       ~{e.estimatedAccountCount.toLocaleString()}
                     </span>
                     <Confidence value={e.confidence} compact />

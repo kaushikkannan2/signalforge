@@ -211,7 +211,15 @@ export function Analytics({ data }: { data: AnalyticsData }) {
 
         <div>
           <span className="rule-label">A/B variants</span>
-          <table className="w-full mt-2 grid-surface" style={{ fontSize: "0.75rem" }}>
+          <table className="w-full mt-2 grid-surface" style={{ fontSize: "0.75rem", tableLayout: "fixed" }}>
+            <colgroup>
+              <col />
+              <col style={{ width: "2.5rem" }} />
+              <col style={{ width: "3rem" }} />
+              <col style={{ width: "3rem" }} />
+              <col style={{ width: "2.75rem" }} />
+              <col style={{ width: "3.5rem" }} />
+            </colgroup>
             <thead>
               <tr style={{ color: "var(--color-ink-faint)" }}>
                 <th className="text-left font-semibold pb-1">Variant</th>
@@ -227,10 +235,10 @@ export function Analytics({ data }: { data: AnalyticsData }) {
                 <tr key={v.variant + v.channel} className="border-t" style={{ borderColor: "var(--color-rule)" }}>
                   <td className="py-1">{v.variant}</td>
                   <td className="py-1 mono">{v.channel.slice(0, 2)}</td>
-                  <td className="py-1 text-right mono">{v.drafted}</td>
-                  <td className="py-1 text-right mono">{v.approved}</td>
-                  <td className="py-1 text-right mono">{v.rejected}</td>
-                  <td className="py-1 text-right mono">{v.approvalRatePct ?? "—"}</td>
+                  <td className="py-1 text-right mono grid-surface">{v.drafted}</td>
+                  <td className="py-1 text-right mono grid-surface">{v.approved}</td>
+                  <td className="py-1 text-right mono grid-surface">{v.rejected}</td>
+                  <td className="py-1 text-right mono grid-surface">{v.approvalRatePct ?? "—"}</td>
                 </tr>
               ))}
               {!data.variants.length && (
@@ -244,7 +252,14 @@ export function Analytics({ data }: { data: AnalyticsData }) {
           </table>
 
           <span className="rule-label block mt-4">By tier</span>
-          <table className="w-full mt-2 grid-surface" style={{ fontSize: "0.75rem" }}>
+          <table className="w-full mt-2 grid-surface" style={{ fontSize: "0.75rem", tableLayout: "fixed" }}>
+            <colgroup>
+              <col />
+              <col style={{ width: "3.25rem" }} />
+              <col style={{ width: "4.75rem" }} />
+              <col style={{ width: "4rem" }} />
+              <col style={{ width: "4.5rem" }} />
+            </colgroup>
             <thead>
               <tr style={{ color: "var(--color-ink-faint)" }}>
                 <th className="text-left font-semibold pb-1">Tier</th>
@@ -258,10 +273,10 @@ export function Analytics({ data }: { data: AnalyticsData }) {
               {data.byTier.map((t) => (
                 <tr key={t.tier} className="border-t" style={{ borderColor: "var(--color-rule)" }}>
                   <td className="py-1">Tier {t.tier}</td>
-                  <td className="py-1 text-right mono">{t.leads}</td>
-                  <td className="py-1 text-right mono">{t.contacted}</td>
-                  <td className="py-1 text-right mono">{t.replied}</td>
-                  <td className="py-1 text-right mono">{t.meetings}</td>
+                  <td className="py-1 text-right mono grid-surface">{t.leads}</td>
+                  <td className="py-1 text-right mono grid-surface">{t.contacted}</td>
+                  <td className="py-1 text-right mono grid-surface">{t.replied}</td>
+                  <td className="py-1 text-right mono grid-surface">{t.meetings}</td>
                 </tr>
               ))}
             </tbody>
@@ -275,8 +290,8 @@ export function Analytics({ data }: { data: AnalyticsData }) {
                   {data.byIndustry.slice(0, 5).map((r) => (
                     <tr key={r.industry} className="border-t" style={{ borderColor: "var(--color-rule)" }}>
                       <td className="py-1">{r.industry}</td>
-                      <td className="py-1 text-right mono">{r.leads} leads</td>
-                      <td className="py-1 text-right mono">{r.contacted} contacted</td>
+                      <td className="py-1 text-right mono grid-surface">{r.leads} leads</td>
+                      <td className="py-1 text-right mono grid-surface">{r.contacted} contacted</td>
                     </tr>
                   ))}
                 </tbody>

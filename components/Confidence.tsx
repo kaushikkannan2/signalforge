@@ -22,13 +22,17 @@ export function Confidence({
     return (
       <span
         title={rationale}
-        className="mono inline-flex items-center gap-1.5 cursor-help"
+        className="mono grid-surface inline-flex items-center gap-1.5 cursor-help"
         style={{ color: tone }}
       >
         <span className="meter w-8 inline-block align-middle">
-          <span style={{ width: `${pct}%`, background: tone }} />
+          <span style={{ width: `${pct}%`, background: tone, color: tone }} />
         </span>
-        {pct}%
+        {/* Fixed width: "7%" and "100%" are different widths, so without this
+            a column of confidences has a ragged right edge. */}
+        <span className="text-right" style={{ minWidth: "2.25rem" }}>
+          {pct}%
+        </span>
       </span>
     );
   }
@@ -39,7 +43,7 @@ export function Confidence({
       <div className="meter w-16">
         <span style={{ width: `${pct}%`, background: tone }} />
       </div>
-      <span className="mono tabular-nums" style={{ color: tone }}>
+      <span className="mono grid-surface text-right" style={{ color: tone, minWidth: "2.25rem" }}>
         {pct}%
       </span>
     </div>

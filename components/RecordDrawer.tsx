@@ -110,7 +110,7 @@ export function RecordDrawer({
                       <td className="py-1" style={{ color: "var(--color-ink-soft)" }}>
                         {k.replace(/([A-Z])/g, " $1").toLowerCase()}
                       </td>
-                      <td className="py-1 text-right mono">+{v}</td>
+                      <td className="py-1 text-right mono grid-surface">+{v}</td>
                     </tr>
                   ))}
                   {company.fit.penalties.map((p) => (
@@ -118,7 +118,7 @@ export function RecordDrawer({
                       <td className="py-1" style={{ color: "var(--color-alarm)" }}>
                         {p.reason}
                       </td>
-                      <td className="py-1 text-right mono" style={{ color: "var(--color-alarm)" }}>
+                      <td className="py-1 text-right mono grid-surface" style={{ color: "var(--color-alarm)" }}>
                         −{p.points}
                       </td>
                     </tr>

@@ -287,6 +287,39 @@ a {
   overflow-x: auto;
 }
 
+/* ---------------------------------------------------------------------------
+   Alignment defaults.
+
+   Every number in this UI sits in a column next to another number, so tabular
+   figures are the default rather than an opt-in — proportional digits make a
+   column of 8 / 11 / 140 visibly ragged. Table headers inherit their cell's
+   alignment so a right-aligned figure never sits under a left-aligned label.
+   --------------------------------------------------------------------------- */
+
+table {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+th {
+  font-weight: 600;
+  vertical-align: bottom;
+}
+
+/* Cells carrying figures align on the decimal, not the word. */
+td.mono,
+th.mono {
+  font-variant-numeric: tabular-nums;
+}
+
+/* A long value should truncate rather than widen its column and push every
+   neighbour out of line. */
+.cell-clip {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* --- motion -------------------------------------------------------------- */
 
 @keyframes pulse-in {

@@ -164,12 +164,24 @@ funnel, AI-vs-rep split, A/B variant table, by-tier and by-industry breakdowns.
   its mirror succeeded. Credit gate halts enrichment cleanly and a top-up resumes it.
 - **Snyk (+20): REAL.** SCA **0 issues**, SAST **0 issues**, both verified locally
   after you enabled Snyk Code. CI runs three jobs including a secret-hygiene check.
-- **Band Desktop (+20): REAL, one agent short.** `GV-Planner`, `GV-Reviewer`,
-  `GV-Security` all authenticate **HTTP 200** against the Agent API. Four-role
-  collaboration with @mention handoffs is built in `lib/providers/band.ts`.
-  **Outstanding: `GV-Builder` is not yet registered, and `BAND_ROOM_ID` is not set** —
-  without the room the handoffs record locally instead of posting to Band.
-  *(Auth note: the Agent API takes `x-api-key`, not `Authorization: Bearer`.)*
+- **Band Desktop (+20): REAL and complete.** All four agents — `GV Planner`,
+  `GV Builder`, `GV Reviewer`, `GV Security` — authenticate **HTTP 200** and the
+  four-role collaboration posts **6/6 messages and events into the live
+  `GTM War Room`**, confirmed by Band returning `201` with the resolved
+  recipient on each. Handoffs are @mention-routed; the final message addresses
+  the human by handle because no agent in the room can approve a dispatch.
+
+  Wire-format notes, all found by probing (the published guide was incomplete):
+  `x-api-key`, not `Authorization: Bearer`. Messages take
+  `{message:{content, mentions:[{handle}]}}` — mentions must be objects with a
+  namespaced handle, minimum one. Events take
+  `{event:{message_type, content}}` with `message_type` an enum of
+  `thought | tool_call | error`. Rooms are created with `{chat:{title}}`.
+
+  Every transcript line records a `delivered` flag set from the actual HTTP
+  status. That was added after discovering the first run had logged six
+  messages locally while Band rejected all six with 422 — a local log that
+  reads as success is exactly how an integration gets overstated.
 
 ### ✅ Chunk 7 — Deliverables
 

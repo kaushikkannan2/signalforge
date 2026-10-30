@@ -24,6 +24,9 @@ import type { BandRole } from "../types";
 
 const BASE = "https://app.band.ai/api/v1/agent";
 
+/** Band handles are namespaced under the owning user. */
+const HANDLE_PREFIX = process.env.BAND_HUMAN_HANDLE ?? "kaushikkannan2";
+
 export interface BandAgentCreds {
   role: BandRole;
   handle: string;
@@ -98,7 +101,13 @@ export async function listPeers(role: BandRole = "planner") {
   return call(creds, "/peers");
 }
 
-function record(role: BandRole, body: string, mentions: string[], kind: "message" | "event") {
+function record(
+  role: BandRole,
+  body: string,
+  mentions: string[],
+  kind: "message" | "event",
+  delivered = false,
+) {
   const ledger = usageLedger();
   const last = ledger[ledger.length - 1];
   db.band.push({
@@ -109,6 +118,9 @@ function record(role: BandRole, body: string, mentions: string[], kind: "message
     mentions,
     body,
     kind,
+    // Recorded per message, so a locally-logged line can never be mistaken
+    // for one Band actually accepted.
+    delivered,
     tokens: last ? { input: last.inputTokens, output: last.outputTokens } : undefined,
     costUsd: Number(totalCostUsd().toFixed(4)),
     at: now(),
@@ -140,16 +152,30 @@ export async function say(
     return null;
   }
 
-  const text = mentions.length
-    ? `${mentions.map((m) => `@gv-${m}`).join(" ")} ${body}`
+  const peers = bandAgents();
+  const targets = mentions
+    .map((m) => peers.find((p) => p.role === m))
+    .filter((p): p is BandAgentCreds => Boolean(p));
+
+  // Band requires at least one mention per message. A message meant for the
+  // room at large is addressed to the human operator, which is also the
+  // correct routing: agents see only what mentions them, humans see all.
+  const mentionObjects = targets.length
+    ? targets.map((t) => ({ handle: `${HANDLE_PREFIX}/${t.handle}` }))
+    : [{ handle: HANDLE_PREFIX }];
+
+  const text = targets.length
+    ? `${targets.map((t) => `@${t.handle}`).join(" ")} ${body}`
     : body;
 
   const res = await call(creds, `/chats/${room}/messages`, {
     method: "POST",
-    body: { content: text },
+    // Wire format: { message: { content, mentions: [{ handle }] } }.
+    // A bare `content` field, or mentions as strings, is rejected 422.
+    body: { message: { content: text, mentions: mentionObjects } },
   });
 
-  record(role, body, mentions.map((m) => `@gv-${m}`), "message");
+  record(role, body, mentions.map((m) => `@gv-${m}`), "message", res.ok);
 
   if (runId) {
     emit(
@@ -164,15 +190,37 @@ export async function say(
 }
 
 /** Execution records (tool calls, findings, errors) rather than chat. */
-export async function event(role: BandRole, summary: string, payload: Record<string, unknown>, runId?: string) {
+export async function event(
+  role: BandRole,
+  summary: string,
+  payload: Record<string, unknown>,
+  runId?: string,
+  messageType: "thought" | "tool_call" | "error" = "tool_call",
+) {
   const creds = bandAgents().find((a) => a.role === role);
   const room = bandRoom();
-  record(role, summary, [], "event");
-  if (!creds || !room) return null;
-  return call(creds, `/chats/${room}/events`, {
+  if (!creds || !room) {
+    record(role, summary, [], "event", false);
+    return null;
+  }
+  // Events take { event: { message_type, content } }. message_type is an enum:
+  // thought | tool_call | error. Anything else is rejected 422.
+  const res = await call(creds, `/chats/${room}/events`, {
     method: "POST",
-    body: { type: "tool_call", summary, payload },
+    body: {
+      event: {
+        message_type: messageType,
+        content: `${summary} — ${JSON.stringify(payload)}`,
+      },
+    },
   });
+  record(role, summary, [], "event", res.ok);
+  if (runId && !res.ok) {
+    emit(runId, "Band", "error", `Event post rejected for ${role}`, {
+      detail: `Band ${res.status}: ${JSON.stringify(res.data).slice(0, 180)}`,
+    });
+  }
+  return res;
 }
 
 /** Token and cost telemetry for the operational-visibility panel. */

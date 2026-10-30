@@ -368,6 +368,8 @@ export interface BandMessage {
   mentions: string[];
   body: string;
   kind: "message" | "event";
+  /** True only when Band accepted the post (HTTP 2xx). */
+  delivered?: boolean;
   /** Token + cost telemetry, per the brief's "operational telemetry". */
   tokens?: { input: number; output: number };
   costUsd?: number;

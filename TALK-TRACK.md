@@ -10,9 +10,10 @@ All five are covered, plus every weighted rubric row and both bonus
 integrations. Target runtime **2:55** — inside the window with five seconds of
 headroom.
 
-**Narration budget: 437 words.** At a clear demo pace (~150 wpm) that is 175
-seconds of talking inside 175 seconds of video. There is no room for
-improvisation — read it.
+**Narration: 386 words — measured, not estimated.** At a clear demo pace
+(~150 wpm) that is 154 seconds of talking inside a 175-second video, leaving
+21 seconds for the 403 pause and the visual beats. Read it; the first draft came
+in at 493 words, which was 22 seconds over, and talking faster is not a fix.
 
 ---
 
@@ -80,7 +81,7 @@ Format: **`[timecode]`** → *screen action* → **narration in bold**
 
 > **"Every AI GTM tool hands you a confident score. SignalForge shows you the
 > sentence and the URL it came from — and refuses to send anything a human
-> hasn't approved. One input. Everything downstream is inferred."**
+> hasn't approved. One input."**
 
 *→ paste the paragraph, click **Forge my pipeline***
 
@@ -97,10 +98,9 @@ Format: **`[timecode]`** → *screen action* → **narration in bold**
 
 *Screen: the one-sentence summary and the confidence dial.*
 
-> **"One sentence to check: who to sell to, at what size, which roles, and
-> when. Fifty-seven percent confidence — and that's the system telling me my
-> own input was thin, because I never said who's actually paying me. Every
-> field carries its own score and its own reason."**
+> **"One sentence to check. Fifty-seven percent — the system telling me my input
+> was thin, because I never said who's paying me. Every field carries its own
+> score and reason."**
 
 *→ expand **Who to target**, click **how this was inferred***
 
@@ -115,10 +115,10 @@ Format: **`[timecode]`** → *screen action* → **narration in bold**
 
 *→ click a citation chip; a real source opens. Then point at the struck-through row.*
 
-> **"Every account carries a source you can open. The model never writes a
-> URL — it answers with indices into results we actually fetched, so a
-> fabricated citation isn't something it's asked to avoid. It's something it
-> can't express. And this one's disqualified, minus forty, reason on the row."**
+> **"Every account carries a source you can open. The model never writes a URL —
+> it answers with indices into results we fetched. A fabricated citation isn't
+> something it avoids; it's something it can't express. And this one's
+> disqualified, with the reason on the row."**
 
 *→ scroll to **Adjacent segments**, 2 seconds on a "missed because" line*
 
@@ -129,10 +129,9 @@ Format: **`[timecode]`** → *screen action* → **narration in bold**
 
 *→ click **⬡** on an account row. The constellation focuses.*
 
-> **"Six thousand eight hundred nodes. This is one account's two-hop
-> neighbourhood — its signals, its buyers, the vendor it already pays. The
-> dashed edge is a bridge: someone on my side worked at the same company as
-> that buyer. Warm introduction, found by traversal."**
+> **"Six thousand eight hundred nodes. One account's two-hop neighbourhood. The
+> dashed edge is a bridge — someone on my side worked where that buyer did.
+> A warm introduction, found by traversal."**
 
 *→ expand **show Cypher** for 2 seconds*
 
@@ -145,10 +144,9 @@ Format: **`[timecode]`** → *screen action* → **narration in bold**
 
 *→ **⌘3** to Buyers. Point at the Method column.*
 
-> **"Real DNS MX lookup on every domain. Note the label —
-> MX-validated-pattern, sixty-two percent. Not 'verified.' The domain accepts
-> mail; that is not the same as this mailbox existing, and the confidence
-> ceiling says so. This one has no MX, so no address is claimed at all."**
+> **"Real DNS MX lookup on every domain. Sixty-two percent — not 'verified.'
+> The domain accepts mail; that isn't the same as this mailbox existing. No MX
+> here, so no address is claimed."**
 
 ---
 
@@ -158,9 +156,8 @@ Format: **`[timecode]`** → *screen action* → **narration in bold**
 
 *→ **⌘5** to the Approval queue.*
 
-> **"Three touches, email and LinkedIn, each quoting the specific signal that
-> made this account in-market — and flagging itself generic if it quoted
-> none. A reviewer model fact-checked it in a separate context that never saw
+> **"Three touches across email and LinkedIn, each quoting the signal that made
+> this account in-market. A reviewer fact-checked it in a context that never saw
 > the drafting prompt."**
 
 *→ **press Send on a message still marked pending.** The 403 appears.*
@@ -185,9 +182,8 @@ Format: **`[timecode]`** → *screen action* → **narration in bold**
 
 *→ drag a card from Contacted to Replied*
 
-> **"I moved that one, so it's tagged Rep. Every transition stores its actor.
-> Below: step conversion by stage, the AI-versus-rep split, and A/B variant
-> performance."**
+> **"I moved that one — tagged Rep. Every transition stores its actor. Below:
+> step conversion and the AI-versus-rep split."**
 
 ---
 
@@ -196,9 +192,8 @@ Format: **`[timecode]`** → *screen action* → **narration in bold**
 
 *→ **⌘8** to Agent room → **Run collaboration**. Then **switch to the Band tab.**
 
-> **"Four registered agents in a live Band room. Planner allocates, Builder
-> reports what it executed, Reviewer gives the real fact-check verdicts,
-> Security audits the dispatch path — handed off by @mention."**
+> **"Four registered agents in a live Band room — Planner, Builder, Reviewer,
+> Security — handing off by @mention."**
 
 *→ scroll to Planner's final message, which names you*
 
@@ -214,9 +209,9 @@ Format: **`[timecode]`** → *screen action* → **narration in bold**
 
 *→ **⌘7** to Usage & billing. Point at the ledger and the mirrored events.*
 
-> **"Three metered events, mirrored live to Flexprice. And the gate: forty-five
-> credits, ten per enrichment — four went through and it stopped, leaving seven
-> hundred untouched. The check runs before the vendor call."**
+> **"Three metered events, mirrored live to Flexprice. The gate: forty-five
+> credits, ten per enrichment — four went through, then it stopped. The check
+> runs before the vendor call."**
 
 *→ **⌘K** → **Show the learning layer**. Point at the posterior curves.*
 

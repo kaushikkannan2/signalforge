@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { approveIcp, clarifyIcp, decideExpansion, reinferIcp } from "@/lib/icp";
+import { approveIcp, clarifyIcp, decideExpansion, reinferIcp, summariseIcp } from "@/lib/icp";
 import { emit } from "@/lib/thinking";
 import { id as mkId } from "@/lib/ids";
 
@@ -10,6 +10,7 @@ export async function GET() {
     intakes: db.intakes,
     icps: db.icps,
     expansions: db.expansions,
+    summaries: Object.fromEntries(db.icps.map((i) => [i.id, summariseIcp(i)])),
   });
 }
 

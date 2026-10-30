@@ -21,6 +21,7 @@ import { Analytics, GraphInsights, PipelineBoard } from "@/components/Pipeline";
 import { RecordDrawer } from "@/components/RecordDrawer";
 import { Constellation } from "@/components/Constellation";
 import { Learning, type LearningData } from "@/components/Learning";
+import { Launch } from "@/components/Launch";
 import { Citations, Confidence, TierBadge } from "@/components/Confidence";
 import { DEMO_INTAKE } from "@/lib/fixtures/demo";
 import type {
@@ -39,6 +40,9 @@ import type {
 
 export default function Workspace() {
   const [view, setView] = useState<ViewKey>("intake");
+  // "launch" is the single-field entry screen; "workspace" is the operating
+  // surface. We only leave launch once there is something to operate on.
+  const [screen, setScreen] = useState<"launch" | "workspace">("launch");
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +66,9 @@ export default function Workspace() {
   const [snapshotGraph, setSnapshotGraph] = useState<{ nodes: any[]; edges: any[] } | null>(null);
   const [graphFocus, setGraphFocus] = useState<string | undefined>();
   const [learning, setLearning] = useState<LearningData | null>(null);
+  const [summary, setSummary] = useState<string | undefined>();
+  const [expansionPending, setExpansionPending] = useState(false);
+  const [questions, setQuestions] = useState<any[]>([]);
 
   // intake form
   const [companyName, setCompanyName] = useState("");
@@ -120,8 +127,13 @@ export default function Workspace() {
       if (p.people?.length) setPeople(p.people);
     }
     if (i?.icps?.length) {
-      setIcp(i.icps[i.icps.length - 1]);
+      const latest = i.icps[i.icps.length - 1];
+      setIcp(latest);
+      setSummary(i.summaries?.[latest.id]);
       setExpansions(i.expansions ?? []);
+      if ((i.expansions ?? []).length) setExpansionPending(false);
+      // There is already state to operate on, so skip the entry screen.
+      setScreen("workspace");
     }
     if (b) setBand(b);
     if (bl) setBilling(bl);
@@ -182,10 +194,47 @@ export default function Workspace() {
         averageContractValue: acv,
       });
       setIcp(d.icp);
+      setSummary(d.summary);
+      setExpansionPending(Boolean(d.expansionPending));
       setExpansions(d.expansions ?? []);
       return {
         title: "ICP inferred",
-        detail: `${Math.round(d.icp.overallConfidence * 100)}% overall confidence · ${d.expansions?.length ?? 0} adjacent segments`,
+        detail: `${Math.round(d.icp.overallConfidence * 100)}% overall confidence`,
+      };
+    });
+
+  /** Launch screen path: one field in, workspace out. */
+  const launchFromDescription = (text: string) =>
+    step("Inferring ICP", async () => {
+      const d = await post("/api/intake", { description: text });
+      setIcp(d.icp);
+      setSummary(d.summary);
+      setExpansionPending(Boolean(d.expansionPending));
+      setExpansions(d.expansions ?? []);
+      setDescription(text);
+      setCompanyName(d.intake.companyName);
+      setProductName(d.intake.productName);
+      setFeatures((d.intake.features ?? []).join("\n"));
+      setAcv(d.intake.averageContractValue ?? "");
+      setScreen("workspace");
+      setView("intake");
+      return {
+        title: `${d.intake.productName} — profile inferred`,
+        detail: `${Math.round(d.icp.overallConfidence * 100)}% confidence. Adjacent segments still searching.`,
+      };
+    });
+
+  const launchFromDataset = () =>
+    step("Loading prepared dataset", async () => {
+      const d = await post("/api/scenario", { scale: 300, credits: 45 });
+      await hydrate();
+      await loadGraph();
+      setIcp(d.icp);
+      setScreen("workspace");
+      setView("accounts");
+      return {
+        title: `${d.counts.companies} accounts loaded`,
+        detail: `${d.counts.people} buyers · ${d.counts.graphNodes} graph nodes · ${d.loadMs}ms`,
       };
     });
 
@@ -195,6 +244,29 @@ export default function Workspace() {
       setIcp(d.icp);
       setExpansions(d.expansions ?? []);
       return { title: "ICP inferred from the example product" };
+    });
+
+  const clarify = () =>
+    step("Finding what would raise confidence", async () => {
+      const d = await post("/api/icp", { action: "clarify", icpId: icp!.id });
+      setQuestions(d.questions ?? []);
+      return {
+        title: `${d.questions.length} questions would raise confidence`,
+        detail: "Answer what you know — the rest can stay blank.",
+      };
+    });
+
+  const reinfer = (answers: { question: string; answer: string }[]) =>
+    step("Re-inferring with your answers", async () => {
+      const d = await post("/api/icp", { action: "reinfer", icpId: icp!.id, answers });
+      setIcp(d.icp);
+      setQuestions([]);
+      await hydrate();
+      const delta = Math.round((d.after - d.before) * 100);
+      return {
+        title: `Confidence ${Math.round(d.before * 100)}% → ${Math.round(d.after * 100)}%`,
+        detail: delta > 0 ? `+${delta} points from ${answers.filter((a) => a.answer.trim()).length} answers` : "Those answers did not reduce uncertainty.",
+      };
     });
 
   const approve = () =>
@@ -294,6 +366,7 @@ export default function Workspace() {
       setLearning(null);
       setDrawer(null);
       setView("intake");
+      setScreen("launch");
       return { title: "Workspace empty", detail: "Every stage is unticked. Start the run." };
     });
 
@@ -345,24 +418,50 @@ export default function Workspace() {
 
   const approvedIcp = icp?.status === "approved";
   const nav: NavItem[] = [
-    { key: "intake", label: "Product & ICP", glyph: "◇" },
+    { key: "intake", label: "Product & ICP", glyph: "◇", stage: true, done: Boolean(icp) },
     {
       key: "accounts",
       label: "Accounts",
       glyph: "▤",
       count: companies.length,
+      stage: true,
+      done: companies.length > 0,
       lockedReason: approvedIcp ? undefined : "Approve the ICP first",
     },
-    { key: "buyers", label: "Buyers", glyph: "◉", count: people.length, lockedReason: companies.length ? undefined : "Discover accounts first" },
-    { key: "graph", label: "Graph", glyph: "⬡", count: graphResults.length, lockedReason: people.length ? undefined : "Find buyers first" },
+    {
+      key: "buyers",
+      label: "Buyers",
+      glyph: "◉",
+      count: people.length,
+      stage: true,
+      done: people.length > 0,
+      lockedReason: companies.length ? undefined : "Discover accounts first",
+    },
+    {
+      key: "graph",
+      label: "Graph",
+      glyph: "⬡",
+      count: graphResults.length,
+      lockedReason: people.length ? undefined : "Find buyers first",
+    },
     {
       key: "outreach",
       label: "Approval queue",
       glyph: "✉",
       count: messages.filter((m) => m.status === "pending_approval").length,
+      stage: true,
+      done: messages.length > 0,
       lockedReason: people.length ? undefined : "Find buyers first",
     },
-    { key: "pipeline", label: "Pipeline", glyph: "▦", count: leads.length, lockedReason: leads.length ? undefined : "No leads yet" },
+    {
+      key: "pipeline",
+      label: "Pipeline",
+      glyph: "▦",
+      count: leads.length,
+      stage: true,
+      done: dispatches.length > 0,
+      lockedReason: leads.length ? undefined : "No leads yet",
+    },
     {
       key: "learning",
       label: "Learning",
@@ -426,6 +525,20 @@ export default function Workspace() {
   const drawerCompany = companies.find(
     (c) => c.id === (drawer?.companyId ?? drawerPerson?.companyId),
   );
+
+  if (screen === "launch") {
+    return (
+      <>
+        <Launch
+          onSubmit={launchFromDescription}
+          running={busy === "Inferring ICP"}
+          error={error}
+          onSkipToDemo={launchFromDataset}
+        />
+        <Toasts toasts={toasts} onDismiss={(id) => setToasts((t) => t.filter((x) => x.id !== id))} />
+      </>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -530,6 +643,9 @@ export default function Workspace() {
                 {icp && (
                   <IcpView
                     icp={icp}
+                    summary={summary}
+                    expansionPending={expansionPending}
+                    onClarify={clarify}
                     expansions={expansions}
                     onApprove={approve}
                     onDecideExpansion={async (id, decision) => {

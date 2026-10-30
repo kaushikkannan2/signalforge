@@ -696,3 +696,192 @@ ${answered.map((a) => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}`,
 
   return { icp: next, deltas, naics };
 }
+
+// ============================================================================
+// Identity extraction.
+//
+// The launch screen asks for ONE thing: a paragraph about what you sell. Every
+// other field the intake form used to demand — company name, product name,
+// capability list, contract value — is already in that paragraph if the founder
+// wrote it naturally, so asking for it separately is making the user do
+// parsing work the system can do itself.
+//
+// This runs CONCURRENTLY with the three ICP slices rather than before them.
+// The slices only need the raw description, so blocking them on identity
+// extraction would add latency for nothing.
+// ============================================================================
+
+const IDENTITY_SCHEMA = {
+  type: "object",
+  properties: {
+    companyName: { type: "string", description: "The seller's company. Empty string if not stated." },
+    productName: { type: "string", description: "The product being sold. Empty string if not stated." },
+    label: {
+      type: "string",
+      description:
+        "A short display label, 2-4 words. Use the real product name if stated; otherwise a category descriptor like 'Observability platform'. Never empty.",
+    },
+    features: {
+      type: "array",
+      items: { type: "string" },
+      description: "Capabilities the description actually mentions. Do not invent any.",
+    },
+    referenceCustomers: {
+      type: "array",
+      items: { type: "string" },
+      description: "Named existing customers, only if explicitly mentioned.",
+    },
+    pricingModel: { type: "string", description: "Empty string if not stated." },
+    averageContractValue: { type: "string", description: "Empty string if not stated." },
+  },
+  required: [
+    "companyName",
+    "productName",
+    "label",
+    "features",
+    "referenceCustomers",
+    "pricingModel",
+    "averageContractValue",
+  ],
+  additionalProperties: false,
+} as const;
+
+export interface ExtractedIdentity {
+  companyName: string;
+  productName: string;
+  /** Always populated: the real name if stated, else a category descriptor. */
+  label: string;
+  features: string[];
+  referenceCustomers: string[];
+  pricingModel: string;
+  averageContractValue: string;
+}
+
+export async function extractIdentity(
+  description: string,
+  runId: string,
+): Promise<ExtractedIdentity> {
+  const { data } = await traced(
+    runId,
+    "Intake",
+    "reasoning",
+    "Extracting company, product and capabilities from the description",
+    () =>
+      structured<ExtractedIdentity>(
+        `Pull the structured facts out of this product description. Leave a field
+as an empty string or empty array if the description does not state it —
+inventing a reference customer or a contract value would corrupt the ICP's
+confidence scoring, which depends on knowing what it was actually told.
+
+${description}`,
+        {
+          system:
+            "You extract only what is stated. An empty field is correct and useful; a plausible invention is not.",
+          schema: IDENTITY_SCHEMA as unknown as Record<string, unknown>,
+          model: MODELS.MECHANICAL,
+          effort: "low",
+          maxTokens: 3000,
+        },
+      ),
+  );
+  return data;
+}
+
+/**
+ * A one-sentence plain-English summary of the profile.
+ *
+ * Why this exists: the full ICP is eight scored fields with rationales, which
+ * is a wall of text to read before you can agree or disagree with it. A single
+ * sentence is something a founder can verify at a glance — and if it is wrong,
+ * they know immediately, which is the whole point of showing it first.
+ *
+ * Deliberately TEMPLATED rather than LLM-generated: it is instant, free,
+ * deterministic, and cannot drift from the fields it is summarising.
+ */
+/** NAICS titles are written for statisticians. These read as English. */
+const FRIENDLY: Record<string, string> = {
+  "Software Publishers": "B2B software",
+  "Computing Infrastructure Providers, Data Processing, Web Hosting": "infrastructure and hosting",
+  "Computing Infrastructure": "infrastructure",
+  "Custom Computer Programming Services": "custom software",
+  "Computer Systems Design Services": "systems integration",
+  "Administrative Management and General Management Consulting": "management consulting",
+  "Financial Transactions Processing, Reserve, and Clearinghouse": "payments",
+  "Freight Transportation Arrangement": "freight brokerage",
+  "Offices of Physicians": "physician practices",
+  "R&D in Physical, Engineering, and Life Sciences": "research and development",
+  "Marketing Consulting Services": "marketing consultancies",
+  "Semiconductor and Related Device Manufacturing": "semiconductors",
+};
+
+/** Turns a filter-list trigger label into something that reads mid-sentence. */
+function tidyTrigger(label: string): string {
+  let t = label.replace(/\s*\([^)]*\)/g, "").trim();
+  // Keep the whole clause — splitting on the first comma turned
+  // "first Controller, VP Finance or CFO hired" into "first controller".
+  t = t.replace(/\b(in|within) the (last|past)\b.*$/i, "").trim();
+  t = t.replace(/\s+(OR|or)\s+/g, " or ");
+  if (t.length > 62) t = `${t.slice(0, 59).replace(/[\s,]+\S*$/, "")}…`;
+  const lower = t.charAt(0).toLowerCase() + t.slice(1);
+  return /^(they|a|an|the)\b/i.test(lower) ? `when ${lower}` : `right after ${lower}`;
+}
+
+export function summariseIcp(icp: IcpDefinition): string {
+  // Industry names arrive long and official ("Computing infrastructure, data
+  // processing, and hosting (SaaS delivery)"). A summary has to be readable, so
+  // take the head of each name and drop the parenthetical gloss.
+  const short = (name: string) => {
+    const bare = name.replace(/\s*\([^)]*\)/g, "").trim();
+    for (const [official, friendly] of Object.entries(FRIENDLY)) {
+      if (bare.toLowerCase().startsWith(official.toLowerCase().slice(0, 24))) return friendly;
+    }
+    return bare
+      .split(/[,/]/)[0]
+      .replace(/\b(services|providers|publishers)\b/gi, "")
+      .trim()
+      .toLowerCase();
+  };
+
+  const verticals = [...new Set(icp.industries.value.map((i) => short(i.name)).filter(Boolean))];
+  // If either friendly name already contains "and", joining with another
+  // "and" produces "software and infrastructure and hosting companies".
+  const joiner = verticals.some((v) => / and /.test(v)) ? ", " : " and ";
+  const industryPhrase =
+    verticals.length === 0
+      ? "companies"
+      : verticals.length === 1
+        ? `${verticals[0]} companies`
+        : `${verticals[0]}${joiner}${verticals[1]} companies`;
+
+  const { min, max } = icp.headcountRange.value;
+  const sizePhrase = min && max ? `${min}\u2013${max} person ` : "";
+
+  // Country names compress: "United States" reads as "the US" in a sentence.
+  const abbr: Record<string, string> = {
+    "United States": "the US",
+    "United Kingdom": "the UK",
+    Canada: "Canada",
+  };
+  const geos = icp.geographies.value.map((g) => abbr[g] ?? g);
+  const geoPhrase =
+    geos.length === 0 ? "" : geos.length === 1 ? ` in ${geos[0]}` : ` in ${geos[0]} and ${geos[1]}`;
+
+  // Titles pluralise so the sentence reads about roles, not individuals.
+  const plural = (t: string) => (/s$/.test(t) ? t : `${t}s`);
+  const titles = icp.personas.value.map((p) => plural(p.title.split(/[/(]/)[0].trim()));
+  const personaPhrase =
+    titles.length === 0
+      ? ""
+      : titles.length === 1
+        ? `, reaching ${titles[0]}`
+        : `, reaching ${titles[0]} and ${titles[1]}`;
+
+  const top = icp.triggerEvents.value.slice().sort((a, b) => b.intentWeight - a.intentWeight)[0];
+  // The trigger label is written for a filter list, not for prose, so only its
+  // first clause survives into the sentence.
+  const triggerPhrase = top
+    ? ` \u2014 best reached ${tidyTrigger(top.label)}`
+    : "";
+
+  return `You sell to ${sizePhrase}${industryPhrase}${geoPhrase}${personaPhrase}${triggerPhrase}.`;
+}

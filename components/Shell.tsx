@@ -32,6 +32,9 @@ export interface NavItem {
   count?: number;
   /** Blocked views are visibly locked, with the reason on hover. */
   lockedReason?: string;
+  /** Pipeline-stage items carry completion, which drives the rail spine. */
+  stage?: boolean;
+  done?: boolean;
 }
 
 export function Rail({
@@ -43,9 +46,30 @@ export function Rail({
   active: ViewKey;
   onSelect: (key: ViewKey) => void;
 }) {
+  // ⌘1–9 jumps between views. Costs nothing, and anyone who lives in Linear
+  // or Raycast will try it within the first ten seconds.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const n = Number(e.key);
+      if (!n || n > items.length) return;
+      const target = items[n - 1];
+      if (target.lockedReason) return;
+      e.preventDefault();
+      onSelect(target.key);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [items, onSelect]);
+
+  const stageItems = items.filter((i) => i.stage);
+  const firstStage = items.findIndex((i) => i.stage);
+  const lastStage = items.reduce((acc, i, idx) => (i.stage ? idx : acc), -1);
+  const doneCount = stageItems.filter((i) => i.done).length;
+
   return (
     <nav
-      className="flex flex-col gap-0.5 p-2.5 border-r shrink-0"
+      className="flex flex-col gap-0.5 p-2.5 border-r shrink-0 relative"
       style={{
         borderColor: "var(--color-rule)",
         width: "14rem",
@@ -56,7 +80,40 @@ export function Rail({
         <Logo size={30} tagline="forged pipeline" />
       </div>
 
-      {items.map((item) => {
+      {/*
+        The rail spine. A vertical line through the pipeline-stage items, filled
+        up to the last completed one — so the rail answers "where is this run?"
+        without the operator moving their eyes to the top bar. The nav and the
+        run state become the same object rather than two readings of it.
+      */}
+      {firstStage >= 0 && lastStage > firstStage && (
+        <span
+          aria-hidden
+          className="absolute"
+          style={{
+            left: "1.44rem",
+            top: `calc(4.9rem + ${firstStage * 2.19}rem + 0.9rem)`,
+            height: `${(lastStage - firstStage) * 2.19}rem`,
+            width: 2,
+            borderRadius: 2,
+            background: "var(--color-rule)",
+            overflow: "hidden",
+          }}
+        >
+          <span
+            className="block"
+            style={{
+              width: 2,
+              height: `${stageItems.length > 1 ? (doneCount ? ((doneCount - 1) / (stageItems.length - 1)) * 100 : 0) : 0}%`,
+              background: "linear-gradient(180deg, var(--color-ember), var(--color-molten))",
+              boxShadow: "0 0 7px var(--color-ember-glow)",
+              transition: "height 650ms cubic-bezier(0.16,1,0.3,1)",
+            }}
+          />
+        </span>
+      )}
+
+      {items.map((item, i) => {
         const isActive = item.key === active;
         const locked = Boolean(item.lockedReason);
         return (
@@ -64,8 +121,8 @@ export function Rail({
             key={item.key}
             onClick={() => !locked && onSelect(item.key)}
             disabled={locked}
-            title={item.lockedReason}
-            className="flex items-center gap-2.5 px-2 py-2 rounded-md text-left relative"
+            title={item.lockedReason ?? `${item.label}  ⌘${i + 1}`}
+            className="group flex items-center gap-2.5 px-2 py-2 rounded-md text-left relative"
             style={{
               background: isActive
                 ? "linear-gradient(90deg, var(--color-ember-soft), transparent)"
@@ -82,33 +139,62 @@ export function Rail({
               transition: "background 150ms, color 150ms",
             }}
           >
-            <span className="mono shrink-0" style={{ width: "1rem", textAlign: "center" }}>
-              {locked ? "·" : item.glyph}
+            {/* Stage items show a spine node; the rest keep their glyph. */}
+            <span
+              className="mono shrink-0 flex items-center justify-center"
+              style={{ width: "1rem", textAlign: "center" }}
+            >
+              {item.stage ? (
+                <span
+                  className="rounded-full"
+                  style={{
+                    width: item.done ? 8 : 7,
+                    height: item.done ? 8 : 7,
+                    background: item.done ? "var(--color-ember)" : "var(--color-surface-3)",
+                    border: item.done ? "none" : `1.5px solid ${locked ? "var(--color-rule)" : "var(--color-rule-strong)"}`,
+                    boxShadow: item.done ? "0 0 7px var(--color-ember-glow)" : undefined,
+                    transition: "all 250ms",
+                  }}
+                />
+              ) : (
+                <span style={{ opacity: locked ? 0.5 : 1 }}>{item.glyph}</span>
+              )}
             </span>
+
             <span className="flex-1 truncate">{item.label}</span>
-            {item.count !== undefined && item.count > 0 && (
+
+            {item.count !== undefined && item.count > 0 ? (
               <span
                 className="mono grid-surface px-1 rounded shrink-0"
                 style={{
-                  background: isActive ? "white" : "var(--color-rule)",
-                  color: "var(--color-ink-soft)",
+                  background: isActive ? "var(--color-ember-soft)" : "var(--color-surface-3)",
+                  color: isActive ? "var(--color-ember)" : "var(--color-ink-soft)",
                   fontSize: "0.625rem",
                 }}
               >
                 {item.count}
+              </span>
+            ) : (
+              /* The shortcut surfaces on hover rather than sitting there
+                 permanently — discoverable without being clutter. */
+              <span
+                className="mono shrink-0 opacity-0 group-hover:opacity-100"
+                style={{ fontSize: "0.5625rem", color: "var(--color-ink-faint)", transition: "opacity 140ms" }}
+              >
+                ⌘{i + 1}
               </span>
             )}
           </button>
         );
       })}
 
-      <div className="mt-auto px-2 py-2">
+      <div className="mt-auto px-2 py-2 flex items-center gap-1.5">
         <kbd
           className="mono px-1.5 py-0.5 rounded border"
           style={{ borderColor: "var(--color-rule-strong)", fontSize: "0.625rem", color: "var(--color-ink-faint)" }}
         >
           ⌘K
-        </kbd>{" "}
+        </kbd>
         <span style={{ fontSize: "0.625rem", color: "var(--color-ink-faint)" }}>commands</span>
       </div>
     </nav>

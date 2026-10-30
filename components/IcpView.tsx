@@ -1,91 +1,220 @@
 "use client";
 
+import { useState } from "react";
 import { Citations, Confidence, ConfidenceDial } from "./Confidence";
 import type { IcpDefinition, IcpExpansion } from "@/lib/types";
 
-function Field({
-  label,
-  confidence,
-  rationale,
-  children,
-}: {
-  label: string;
-  confidence: number;
-  rationale: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="py-3 border-b" style={{ borderColor: "var(--color-rule)" }}>
-      <div className="flex items-center justify-between gap-4 mb-1.5">
-        <span className="rule-label">{label}</span>
-        <Confidence value={confidence} rationale={rationale} compact />
-      </div>
-      <div style={{ fontSize: "0.875rem" }}>{children}</div>
-      <p className="mt-1.5" style={{ fontSize: "0.75rem", color: "var(--color-ink-faint)" }}>
-        {rationale}
-      </p>
-    </div>
-  );
-}
+/* ---------------------------------------------------------------------------
+   The profile, with the friction taken out.
 
-const Chip = ({ children }: { children: React.ReactNode }) => (
+   The previous version showed eight scored fields, each with a rationale
+   paragraph, all expanded, all at once. That is a wall of text a founder has
+   to read before they can agree or disagree with any of it — and the thing
+   they actually need to do is agree or disagree.
+
+   So: ONE verifiable sentence first. Then the eight fields grouped into the
+   same three units the inference actually ran in, collapsed. Rationales
+   behind a "why" toggle rather than always on.
+
+   Nothing is hidden — every field and every rationale is one click away. The
+   change is what you see *by default*, which is the difference between a
+   document and an interface.
+   --------------------------------------------------------------------------- */
+
+const Chip = ({ children, tone }: { children: React.ReactNode; tone?: string }) => (
   <span
-    className="inline-block px-2 py-0.5 rounded border mr-1.5 mb-1.5"
-    style={{ borderColor: "var(--color-rule-strong)", fontSize: "0.8125rem" }}
+    className="inline-block px-2 py-0.5 rounded-md mr-1.5 mb-1.5"
+    style={{
+      border: `1px solid ${tone ?? "var(--color-rule-strong)"}`,
+      color: tone ?? "var(--color-ink)",
+      fontSize: "0.8125rem",
+      background: "var(--color-surface-2)",
+    }}
   >
     {children}
   </span>
 );
 
+/**
+ * The reasoning behind a field.
+ *
+ * Framed as "how this was inferred" rather than "why?" on purpose: the first
+ * invites someone who wants to understand the method, the second only invites
+ * someone who already suspects it is wrong. Most people opening this are
+ * learning how the engine thinks, and that is a feature worth inviting.
+ */
+function Reasoning({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="mono inline-flex items-center gap-1"
+        style={{ fontSize: "0.5625rem", color: open ? "var(--color-ember)" : "var(--color-ink-faint)" }}
+      >
+        <span>{open ? "\u2212" : "+"}</span>
+        how this was inferred
+      </button>
+      {open && (
+        <p
+          className="mt-1 pl-2.5 border-l-2"
+          style={{
+            fontSize: "0.75rem",
+            color: "var(--color-ink-soft)",
+            borderColor: "var(--color-rule-strong)",
+            lineHeight: 1.5,
+          }}
+        >
+          {text}
+        </p>
+      )}
+    </>
+  );
+}
+
+function Group({
+  title,
+  preview,
+  confidence,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  preview: string;
+  confidence: number;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section className="border-t" style={{ borderColor: "var(--color-rule)" }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full px-4 py-2.5 flex items-center gap-3 text-left row-hover"
+      >
+        <span className="mono shrink-0" style={{ fontSize: "0.625rem", color: "var(--color-ink-faint)" }}>
+          {open ? "▾" : "▸"}
+        </span>
+        <span className="rule-label shrink-0" style={{ width: "9.5rem" }}>
+          {title}
+        </span>
+        {!open && (
+          <span
+            className="truncate"
+            style={{ fontSize: "0.8125rem", color: "var(--color-ink-soft)", flex: 1 }}
+          >
+            {preview}
+          </span>
+        )}
+        <span className="ml-auto shrink-0">
+          <Confidence value={confidence} compact />
+        </span>
+      </button>
+      {open && <div className="px-4 pb-3.5 pl-[3.6rem] flex flex-col gap-3.5">{children}</div>}
+    </section>
+  );
+}
+
+function Field({
+  label,
+  rationale,
+  children,
+}: {
+  label: string;
+  rationale: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <span className="rule-label" style={{ fontSize: "0.5625rem" }}>
+        {label}
+      </span>
+      <div className="mt-1" style={{ fontSize: "0.875rem" }}>
+        {children}
+      </div>
+      <div className="mt-1">
+        <Reasoning text={rationale} />
+      </div>
+    </div>
+  );
+}
+
 export function IcpView({
   icp,
+  summary,
   expansions,
+  expansionPending,
   onApprove,
   onDecideExpansion,
+  onClarify,
   busy,
 }: {
   icp: IcpDefinition;
+  summary?: string;
   expansions: IcpExpansion[];
+  expansionPending?: boolean;
   onApprove: () => void;
   onDecideExpansion: (id: string, decision: "accepted" | "adjusted" | "dismissed") => void;
+  onClarify?: () => void;
   busy: boolean;
 }) {
   const money = (n: number) =>
     n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(0)}M` : `$${(n / 1000).toFixed(0)}k`;
+  const triggers = icp.triggerEvents.value.slice().sort((a, b) => b.intentWeight - a.intentWeight);
+  const approved = icp.status === "approved";
+
+  const groupConfidence = (...vals: number[]) =>
+    Number((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2));
 
   return (
-    <div className="flex flex-col gap-6">
-      <section className="surface" style={{ borderColor: "var(--color-rule)" }}>
-        <header
-          className="px-4 py-3 border-b flex items-start justify-between gap-4"
-          style={{ borderColor: "var(--color-rule)" }}
+    <div className="flex flex-col gap-5">
+      <section className="surface overflow-hidden">
+        {/* --- the one sentence --- */}
+        <div
+          className="px-5 py-4 flex items-start gap-5 flex-wrap"
+          style={{ background: "linear-gradient(180deg, rgba(255,122,69,0.06), transparent)" }}
         >
-          <div>
-            <h2 className="display" style={{ fontSize: "1.25rem" }}>
-              Inferred ideal customer profile
-            </h2>
-            <p className="mono mt-0.5" style={{ color: "var(--color-ink-faint)" }}>
-              {icp.id} · {icp.status}
-            </p>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
+          <div style={{ flex: 1, minWidth: "20rem" }}>
+            <span className="rule-label">Inferred profile</span>
             <p
-              className="text-right"
-              style={{ fontSize: "0.6875rem", color: "var(--color-ink-faint)", maxWidth: "13rem" }}
+              className="display mt-1.5"
+              style={{ fontSize: "1.3125rem", lineHeight: 1.35, color: "var(--color-ink)" }}
             >
-              Mean of every field. A low reading is the engine telling you the intake was
-              thin — not that the profile is wrong.
+              {summary ?? "Profile inferred."}
             </p>
-            <ConfidenceDial value={icp.overallConfidence} />
+            <p className="mt-2" style={{ fontSize: "0.75rem", color: "var(--color-ink-faint)" }}>
+              One sentence to check. Open any section below to see the fields and how each
+              was inferred.
+            </p>
           </div>
-        </header>
+          <div className="flex flex-col items-center gap-1.5 shrink-0">
+            <ConfidenceDial value={icp.overallConfidence} size={84} />
+            {icp.overallConfidence < 0.65 && onClarify && (
+              <button
+                onClick={onClarify}
+                disabled={busy}
+                className="btn-ghost px-2.5 py-1 rounded-md disabled:opacity-40"
+                style={{ fontSize: "0.75rem" }}
+                title="The engine asks about its own weakest fields, then re-infers"
+              >
+                Raise it →
+              </button>
+            )}
+          </div>
+        </div>
 
-        <div className="px-4">
-          <Field
-            label="Target verticals (NAICS)"
-            confidence={icp.industries.confidence}
-            rationale={icp.industries.rationale}
-          >
+        {/* --- detail, collapsed, grouped as the inference actually ran --- */}
+        <Group
+          title="Who to target"
+          confidence={groupConfidence(
+            icp.industries.confidence,
+            icp.headcountRange.confidence,
+            icp.revenueBand.confidence,
+            icp.geographies.confidence,
+          )}
+          preview={`${icp.industries.value.map((i) => i.name).join(", ")} · ${icp.headcountRange.value.tierLabel}`}
+        >
+          <Field label="Verticals (NAICS)" rationale={icp.industries.rationale}>
             {icp.industries.value.map((i) => (
               <Chip key={i.naics + i.name}>
                 <span className="mono" style={{ color: "var(--color-ink-faint)" }}>
@@ -95,182 +224,157 @@ export function IcpView({
               </Chip>
             ))}
           </Field>
-
-          <Field
-            label="Company size"
-            confidence={icp.headcountRange.confidence}
-            rationale={icp.headcountRange.rationale}
-          >
+          <Field label="Size" rationale={icp.headcountRange.rationale}>
             <span className="grid-surface">
-              {icp.headcountRange.value.tierLabel} —{" "}
+              {icp.headcountRange.value.tierLabel} ·{" "}
               <span className="mono">
                 {icp.headcountRange.value.min}–{icp.headcountRange.value.max}
               </span>{" "}
-              employees
+              employees · {money(icp.revenueBand.value.min)}–{money(icp.revenueBand.value.max)} revenue
             </span>
           </Field>
-
-          <Field
-            label="Revenue band"
-            confidence={icp.revenueBand.confidence}
-            rationale={icp.revenueBand.rationale}
-          >
-            <span className="grid-surface mono">
-              {money(icp.revenueBand.value.min)} – {money(icp.revenueBand.value.max)}{" "}
-              {icp.revenueBand.value.currency}
-            </span>
+          <Field label="Geographies" rationale={icp.geographies.rationale}>
+            {icp.geographies.value.map((g) => (
+              <Chip key={g}>{g}</Chip>
+            ))}
           </Field>
+        </Group>
 
-          <Field
-            label="Buyer personas"
-            confidence={icp.personas.confidence}
-            rationale={icp.personas.rationale}
-          >
-            <div className="scroll-x">
-              <table className="w-full grid-surface" style={{ fontSize: "0.8125rem" }}>
-                <thead>
-                  <tr style={{ color: "var(--color-ink-faint)" }}>
-                    <th className="text-left font-semibold pb-1 pr-3">Title</th>
-                    <th className="text-left font-semibold pb-1 pr-3">Seniority</th>
-                    <th className="text-left font-semibold pb-1">Measured on</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {icp.personas.value.map((p) => (
-                    <tr key={p.title} className="border-t" style={{ borderColor: "var(--color-rule)" }}>
-                      <td className="py-1.5 pr-3 align-top">{p.title}</td>
-                      <td className="py-1.5 pr-3 align-top mono" style={{ color: "var(--color-ink-soft)" }}>
-                        {p.seniority}
-                      </td>
-                      <td className="py-1.5 align-top" style={{ color: "var(--color-ink-soft)" }}>
-                        {p.jobToBeDone}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Field>
-
-          <Field
-            label="Trigger events"
-            confidence={icp.triggerEvents.confidence}
-            rationale={icp.triggerEvents.rationale}
-          >
+        <Group
+          title="Who to reach, when"
+          confidence={groupConfidence(icp.personas.confidence, icp.triggerEvents.confidence)}
+          preview={`${icp.personas.value.map((p) => p.title).join(", ")} · ${triggers.length} triggers`}
+        >
+          <Field label="Buyer personas" rationale={icp.personas.rationale}>
             <div className="flex flex-col gap-2">
-              {icp.triggerEvents.value
-                .slice()
-                .sort((a, b) => b.intentWeight - a.intentWeight)
-                .map((t) => (
-                  <div key={t.label} className="flex gap-2.5 items-start">
-                    <span
-                      className="mono shrink-0 px-1.5 py-0.5 rounded grid-surface"
-                      style={{ background: "var(--color-signal-soft)", color: "var(--color-signal)" }}
-                      title="Intent weight out of 30"
-                    >
-                      +{t.intentWeight}
-                    </span>
-                    <div>
-                      <div>{t.label}</div>
-                      <div style={{ fontSize: "0.75rem", color: "var(--color-ink-soft)" }}>
-                        {t.buyingImplication}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              {icp.personas.value.map((p) => (
+                <div key={p.title} className="flex items-baseline gap-2">
+                  <span
+                    className="rule-label shrink-0 px-1.5 rounded"
+                    style={{
+                      background: "var(--color-steel-soft)",
+                      color: "var(--color-steel-blue)",
+                      fontSize: "0.5625rem",
+                    }}
+                  >
+                    {p.seniority}
+                  </span>
+                  <span style={{ fontWeight: 600 }}>{p.title}</span>
+                  <span style={{ fontSize: "0.75rem", color: "var(--color-ink-soft)" }}>
+                    measured on {p.jobToBeDone.charAt(0).toLowerCase()}
+                    {p.jobToBeDone.slice(1)}
+                  </span>
+                </div>
+              ))}
             </div>
           </Field>
+          <Field label="Trigger events — ranked by predictive weight" rationale={icp.triggerEvents.rationale}>
+            <div className="flex flex-col gap-1.5">
+              {triggers.map((t) => (
+                <div key={t.label} className="flex gap-2.5 items-start">
+                  <span
+                    className="mono shrink-0 px-1.5 rounded grid-surface"
+                    style={{ background: "var(--color-molten-soft)", color: "var(--color-molten)" }}
+                    title={`Intent weight out of 30 — ${t.buyingImplication}`}
+                  >
+                    +{t.intentWeight}
+                  </span>
+                  <span>
+                    {t.label}
+                    <span style={{ color: "var(--color-ink-faint)" }}> — {t.buyingImplication}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Field>
+        </Group>
 
-          <Field
-            label="Negative signals — hard disqualifiers"
-            confidence={icp.negativeSignals.confidence}
-            rationale={icp.negativeSignals.rationale}
-          >
+        <Group
+          title="What to exclude"
+          confidence={groupConfidence(icp.negativeSignals.confidence, icp.techStackAffinity.confidence)}
+          preview={`${icp.negativeSignals.value.length} hard disqualifiers · ${icp.techStackAffinity.value.length} stack signals`}
+        >
+          <Field label="Hard disqualifiers" rationale={icp.negativeSignals.rationale}>
             <ul className="flex flex-col gap-1">
               {icp.negativeSignals.value.map((n) => (
                 <li key={n} className="flex gap-2 items-start">
-                  <span style={{ color: "var(--color-alarm)" }}>✕</span>
+                  <span style={{ color: "var(--color-quench)" }}>✕</span>
                   <span>{n}</span>
                 </li>
               ))}
             </ul>
           </Field>
-
-          <div className="py-3">
-            <div className="flex items-center justify-between gap-4 mb-1.5">
-              <span className="rule-label">Tech stack affinity</span>
-              <Confidence
-                value={icp.techStackAffinity.confidence}
-                rationale={icp.techStackAffinity.rationale}
-                compact
-              />
-            </div>
-            <div>
-              {icp.techStackAffinity.value.map((t) => (
-                <Chip key={t}>{t}</Chip>
-              ))}
-            </div>
-          </div>
-        </div>
+          <Field label="Tech stack affinity" rationale={icp.techStackAffinity.rationale}>
+            {icp.techStackAffinity.value.map((t) => (
+              <Chip key={t}>{t}</Chip>
+            ))}
+          </Field>
+        </Group>
 
         <footer
-          className="px-4 py-3 border-t flex items-center justify-between gap-4"
+          className="px-5 py-3 border-t flex items-center justify-between gap-4"
           style={{ borderColor: "var(--color-rule)", background: "var(--color-surface-2)" }}
         >
-          <p style={{ fontSize: "0.75rem", color: "var(--color-ink-soft)", maxWidth: "34rem" }}>
-            Discovery is gated on your approval. Nothing is searched for, enriched or
-            drafted against an unapproved profile.
+          <p style={{ fontSize: "0.75rem", color: "var(--color-ink-soft)", maxWidth: "30rem" }}>
+            Nothing is searched, enriched or drafted against an unapproved profile.
           </p>
           <button
             onClick={onApprove}
-            disabled={busy || icp.status === "approved"}
-            className={`${icp.status === "approved" ? "btn-ghost" : "btn-primary"} px-3.5 py-2 rounded-md disabled:opacity-50`}
+            disabled={busy || approved}
+            className={`${approved ? "btn-ghost" : "btn-primary"} px-4 py-2 rounded-md disabled:opacity-60 shrink-0`}
             style={{ fontSize: "0.875rem" }}
           >
-            {icp.status === "approved" ? "✓ Approved" : "Approve profile"}
+            {approved ? "✓ Approved" : "Approve & find accounts"}
           </button>
         </footer>
       </section>
 
-      {expansions.length > 0 && (
-        <section className="surface" style={{ borderColor: "var(--color-rule)" }}>
+      {/* --- adjacent segments --- */}
+      {(expansions.length > 0 || expansionPending) && (
+        <section className="surface">
           <header className="px-4 py-3 border-b" style={{ borderColor: "var(--color-rule)" }}>
-            <h2 className="display" style={{ fontSize: "1.25rem" }}>
-              Adjacent segments
-            </h2>
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <h2 className="display" style={{ fontSize: "1.125rem" }}>
+                Adjacent segments
+              </h2>
+              {expansionPending && expansions.length === 0 && (
+                <span className="mono" style={{ fontSize: "0.625rem", color: "var(--color-molten)" }}>
+                  still searching…
+                </span>
+              )}
+            </div>
             <p className="mt-0.5" style={{ fontSize: "0.8125rem", color: "var(--color-ink-soft)" }}>
-              Markets conventional firmographic filtering would exclude. Each thesis was
-              sent back out to live search, so you can check it rather than take it.
+              Markets standard filtering would exclude. Each thesis was re-searched, so you can
+              check it rather than take it.
             </p>
           </header>
 
           <div className="divide-y" style={{ borderColor: "var(--color-rule)" }}>
             {expansions.map((e) => (
-              <article key={e.id} className="px-4 py-3.5">
+              <article key={e.id} className="px-4 py-3">
                 <div className="flex items-start justify-between gap-4">
                   <h3 style={{ fontSize: "0.9375rem", fontWeight: 600 }}>{e.segmentName}</h3>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="mono" style={{ color: "var(--color-ink-faint)" }}>
-                      ~{e.estimatedAccountCount.toLocaleString()} accts
+                    <span className="mono" style={{ color: "var(--color-ink-faint)", fontSize: "0.6875rem" }}>
+                      ~{e.estimatedAccountCount.toLocaleString()}
                     </span>
                     <Confidence value={e.confidence} compact />
                   </div>
                 </div>
-                <p className="mt-1.5" style={{ fontSize: "0.8125rem" }}>
-                  {e.thesis}
-                </p>
                 <p
-                  className="mt-1.5 pl-2.5 border-l-2"
+                  className="mt-1 pl-2.5 border-l-2"
                   style={{
                     fontSize: "0.8125rem",
                     color: "var(--color-ink-soft)",
-                    borderColor: "var(--color-rule-strong)",
+                    borderColor: "var(--color-amethyst)",
                   }}
                 >
-                  <span className="rule-label mr-1">Missed because</span>
+                  <span className="rule-label mr-1" style={{ fontSize: "0.5625rem" }}>
+                    missed because
+                  </span>
                   {e.nonObviousBecause}
                 </p>
-                <div className="mt-2.5 flex items-center justify-between gap-3 flex-wrap">
+                <div className="mt-2 flex items-center justify-between gap-3 flex-wrap">
                   <Citations evidence={e.evidence} />
                   {e.decision === "pending" ? (
                     <div className="flex gap-1.5">
@@ -279,15 +383,16 @@ export function IcpView({
                           key={d}
                           onClick={() => onDecideExpansion(e.id, d)}
                           disabled={busy}
-                          className="px-2.5 py-1 rounded border disabled:opacity-50"
+                          className="px-2.5 py-1 rounded-md border disabled:opacity-50"
                           style={{
                             borderColor: "var(--color-rule-strong)",
                             fontSize: "0.8125rem",
+                            background: "var(--color-surface-2)",
                             color:
                               d === "accepted"
-                                ? "var(--color-tier-a)"
+                                ? "var(--color-tempered)"
                                 : d === "dismissed"
-                                  ? "var(--color-alarm)"
+                                  ? "var(--color-quench)"
                                   : "var(--color-ink-soft)",
                           }}
                         >
@@ -299,8 +404,9 @@ export function IcpView({
                     <span
                       className="rule-label px-2 py-0.5 rounded"
                       style={{
-                        background: e.decision === "dismissed" ? "var(--color-alarm-soft)" : "var(--color-vine-soft)",
-                        color: e.decision === "dismissed" ? "var(--color-alarm)" : "var(--color-vine)",
+                        background:
+                          e.decision === "dismissed" ? "var(--color-quench-soft)" : "var(--color-tempered-soft)",
+                        color: e.decision === "dismissed" ? "var(--color-quench)" : "var(--color-tempered)",
                       }}
                     >
                       {e.decision}

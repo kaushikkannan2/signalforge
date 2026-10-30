@@ -43,7 +43,9 @@ interface Phase {
 export function ThinkingPanel({ running }: { running: boolean }) {
   const [steps, setSteps] = useState<ThinkingStep[]>([]);
   const [connected, setConnected] = useState(false);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // Phases the operator has explicitly toggled. Everything else follows the
+  // auto rule below, so a long run doesn't become an unreadable scroll.
+  const [overridden, setOverridden] = useState<Map<string, boolean>>(new Map());
   const [filter, setFilter] = useState<ThinkingStep["kind"] | "all">("all");
   const [open, setOpen] = useState(true);
   const scroller = useRef<HTMLDivElement>(null);
@@ -179,15 +181,20 @@ export function ThinkingPanel({ running }: { running: boolean }) {
 
           {phases.map((phase, pi) => {
             const key = `${phase.name}-${pi}`;
-            const isCollapsed = collapsed.has(key);
             const isLast = pi === phases.length - 1;
+            // Auto rule: the phase currently running stays open, finished ones
+            // fold to a summary line. Nothing is hidden — a finished phase is
+            // one click from its full detail — but a completed run reads as a
+            // short list of outcomes rather than forty streamed lines.
+            const auto = !(isLast && running) && phases.length > 1;
+            const isCollapsed = overridden.get(key) ?? auto;
             return (
               <section key={key}>
                 <button
                   onClick={() =>
-                    setCollapsed((prev) => {
-                      const next = new Set(prev);
-                      next.has(key) ? next.delete(key) : next.add(key);
+                    setOverridden((prev) => {
+                      const next = new Map(prev);
+                      next.set(key, !isCollapsed);
                       return next;
                     })
                   }
@@ -224,6 +231,17 @@ export function ThinkingPanel({ running }: { running: boolean }) {
                     {phase.totalMs > 0 && ` · ${fmt(phase.totalMs)}`}
                   </span>
                 </button>
+
+                {/* A collapsed phase still reports its outcome, so folding it
+                    loses nothing an operator needs at a glance. */}
+                {isCollapsed && (
+                  <p
+                    className="pl-[1.6rem] pr-1 pb-1"
+                    style={{ fontSize: "0.6875rem", color: "var(--color-ink-soft)", lineHeight: 1.4 }}
+                  >
+                    {outcomeOf(phase)}
+                  </p>
+                )}
 
                 {!isCollapsed && (
                   <div className="relative pl-1.5">
@@ -379,3 +397,19 @@ function Chip({
 }
 
 const fmt = (ms: number) => (ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`);
+
+/**
+ * The one line a folded phase shows. Priority order is deliberate: a failure
+ * or a human gate is what an operator needs to see without unfolding
+ * anything; otherwise the last validation step is the phase's result.
+ */
+function outcomeOf(phase: Phase): string {
+  const error = phase.steps.find((s) => s.kind === "error");
+  if (error) return `${error.label}${error.detail ? ` — ${error.detail}` : ""}`;
+  const gate = phase.steps.find((s) => s.kind === "gate");
+  if (gate) return gate.label;
+  const validations = phase.steps.filter((s) => s.kind === "validation");
+  const last = validations[validations.length - 1];
+  if (last) return last.detail ? `${last.label} — ${last.detail}` : last.label;
+  return phase.steps[phase.steps.length - 1]?.label ?? "";
+}

@@ -22,62 +22,82 @@
 
 export function Mark({ size = 32, glow = true }: { size?: number; glow?: boolean }) {
   const uid = `sf${size}`;
+  // The hammer is omitted below ~26px — at rail size it becomes a smudge, and
+  // a mark that is illegible small is a worse mark than a simpler one.
+  const detailed = size >= 26;
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 32 32"
+      viewBox="0 0 40 40"
       fill="none"
       role="img"
       aria-label="SignalForge"
       style={{ display: "block", flexShrink: 0 }}
     >
       <defs>
-        {/* Heated steel: ember at the base, white-gold at the tip. */}
-        <linearGradient id={`${uid}-molten`} x1="0" y1="20" x2="0" y2="3" gradientUnits="userSpaceOnUse">
+        <linearGradient id={`${uid}-molten`} x1="0" y1="27" x2="0" y2="6" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor="#E8431F" />
-          <stop offset="45%" stopColor="#FF7A45" />
-          <stop offset="78%" stopColor="#FFC53D" />
-          <stop offset="100%" stopColor="#FFE9B0" />
+          <stop offset="42%" stopColor="#FF7A45" />
+          <stop offset="76%" stopColor="#FFC53D" />
+          <stop offset="100%" stopColor="#FFF3D1" />
         </linearGradient>
-        {/* Cold steel for the anvil. */}
-        <linearGradient id={`${uid}-steel`} x1="0" y1="18" x2="0" y2="30" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#7C8EA4" />
-          <stop offset="55%" stopColor="#4A5A6E" />
-          <stop offset="100%" stopColor="#2B3645" />
+        <linearGradient id={`${uid}-steel`} x1="0" y1="25" x2="0" y2="38" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#8699AE" />
+          <stop offset="52%" stopColor="#4A5A6E" />
+          <stop offset="100%" stopColor="#262F3C" />
+        </linearGradient>
+        <linearGradient id={`${uid}-hammer`} x1="26" y1="4" x2="38" y2="14" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#9FB2C6" />
+          <stop offset="60%" stopColor="#5B6B80" />
+          <stop offset="100%" stopColor="#36414F" />
         </linearGradient>
         <radialGradient id={`${uid}-heat`} cx="0.5" cy="0.5">
-          <stop offset="0%" stopColor="#FF7A45" stopOpacity="0.5" />
+          <stop offset="0%" stopColor="#FF7A45" stopOpacity="0.55" />
           <stop offset="100%" stopColor="#FF7A45" stopOpacity="0" />
         </radialGradient>
       </defs>
 
-      {/* Forge heat behind the work. */}
-      {glow && <ellipse cx="17" cy="14" rx="13" ry="12" fill={`url(#${uid}-heat)`} />}
+      {/* Forge heat rising off the work. */}
+      {glow && <ellipse cx="18" cy="19" rx="16" ry="15" fill={`url(#${uid}-heat)`} />}
 
       {/*
-        Three ascending bars. Signal strength and a revenue chart are the same
-        shape — that ambiguity is the point of the mark.
+        Three ascending bars of heated metal. Signal strength and a revenue
+        chart are the same shape — that ambiguity is the point of the mark.
       */}
-      <rect x="8.5" y="13" width="4" height="7" rx="1.6" fill={`url(#${uid}-molten)`} />
-      <rect x="14" y="8.5" width="4" height="11.5" rx="1.6" fill={`url(#${uid}-molten)`} />
-      <rect x="19.5" y="3.5" width="4" height="16.5" rx="1.6" fill={`url(#${uid}-molten)`} />
+      <rect x="7.5" y="18.5" width="4.6" height="8.5" rx="1.8" fill={`url(#${uid}-molten)`} />
+      <rect x="14" y="13" width="4.6" height="14" rx="1.8" fill={`url(#${uid}-molten)`} />
+      <rect x="20.5" y="7" width="4.6" height="20" rx="1.8" fill={`url(#${uid}-molten)`} />
 
-      {/* Sparks off the hot end. */}
-      <circle cx="26.6" cy="5.2" r="1.5" fill="#FFE9B0" />
-      <circle cx="28.9" cy="9.4" r="0.95" fill="#FFC53D" />
-      <circle cx="25.4" cy="11.3" r="0.65" fill="#FF7A45" />
+      {detailed && (
+        <>
+          {/* The hammer, mid-swing, about to land on the tallest bar. */}
+          <g transform="rotate(32 30 10)">
+            <rect x="26.4" y="4.2" width="9.6" height="5.6" rx="1.5" fill={`url(#${uid}-hammer)`} />
+            <rect x="26.4" y="4.2" width="9.6" height="1.5" rx="0.75" fill="#B8C8D8" opacity="0.6" />
+            <rect x="30.2" y="9.4" width="2" height="11" rx="1" fill="#7A5330" />
+            <rect x="30.2" y="9.4" width="0.8" height="11" rx="0.4" fill="#9C6B3E" />
+          </g>
+          {/* Impact sparks off the strike point. */}
+          <circle cx="27.6" cy="6.6" r="1.7" fill="#FFF3D1" />
+          <circle cx="31.4" cy="21.4" r="1.05" fill="#FFC53D" />
+          <circle cx="29" cy="25" r="0.7" fill="#FF7A45" />
+        </>
+      )}
+      {!detailed && (
+        <>
+          <circle cx="29.5" cy="7.5" r="1.9" fill="#FFF3D1" />
+          <circle cx="32.5" cy="12.5" r="1.15" fill="#FFC53D" />
+        </>
+      )}
 
-      {/*
-        The anvil: horn to the left, waisted stem, splayed base. Cold steel,
-        and the only cool mass in the mark.
-      */}
+      {/* The anvil: horn, waisted stem, splayed base. The only cool mass. */}
       <path
-        d="M2.2 21.4c2.6-1.3 4.1-1.5 5.3-1.5h20.1c0.7 0 1.1 0.5 1.1 1.1v1.3c0 0.6-0.5 1.1-1.1 1.1h-7.3l-0.5 2.6h2.2c0.6 0 1 0.4 1 1v1.3c0 0.5-0.4 0.9-1 0.9H10.1c-0.5 0-1-0.4-1-0.9v-1.3c0-0.6 0.5-1 1-1h2.2l-0.5-2.6H8.3c-1.4 0-3.3 0.4-5.4 1.2-0.6 0.2-1.1-0.1-1.1-0.7v-1.9c0-0.3 0.2-0.5 0.4-0.6Z"
+        d="M2.6 28.3c3.1-1.5 4.9-1.8 6.3-1.8h24.1c0.8 0 1.3 0.6 1.3 1.3v1.6c0 0.7-0.6 1.3-1.3 1.3h-8.7l-0.6 3.1h2.6c0.7 0 1.2 0.5 1.2 1.2v1.6c0 0.6-0.5 1.1-1.2 1.1H12.1c-0.6 0-1.2-0.5-1.2-1.1v-1.6c0-0.7 0.6-1.2 1.2-1.2h2.6l-0.6-3.1H9.9c-1.7 0-4 0.5-6.5 1.4-0.7 0.3-1.3-0.1-1.3-0.8v-2.3c0-0.4 0.2-0.6 0.5-0.7Z"
         fill={`url(#${uid}-steel)`}
       />
-      {/* Highlight along the strike face — this is what makes it read as metal. */}
-      <path d="M8.1 20.2h19.4c0.5 0 0.9 0.3 0.9 0.8H7.6c0-0.5 0.2-0.8 0.5-0.8Z" fill="#A8BACE" opacity="0.75" />
+      {/* Strike-face highlight — this is what makes it read as metal. */}
+      <path d="M9.7 26.9h23.3c0.6 0 1 0.4 1 1H9.1c0-0.6 0.2-1 0.6-1Z" fill="#AEC0D4" opacity="0.8" />
     </svg>
   );
 }

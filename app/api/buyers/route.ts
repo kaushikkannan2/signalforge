@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { activeIcp, db } from "@/lib/db";
+import { db, resolveIcp } from "@/lib/db";
 import { discoverBuyers, seedInternalTeam } from "@/lib/discovery";
 import { enrichAll } from "@/lib/enrichment";
 import { ensureLead } from "@/lib/pipeline";
@@ -10,16 +10,20 @@ import { id as mkId } from "@/lib/ids";
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
-  const { enrich = true, discover } = (await req.json().catch(() => ({}))) as {
+  const { enrich = true, discover, icpId } = (await req.json().catch(() => ({}))) as {
     enrich?: boolean;
     discover?: boolean;
+    icpId?: string;
   };
   // When buyers already exist (a loaded scenario), the default is to enrich
   // what is there rather than spend search calls rediscovering it.
   const shouldDiscover = discover ?? db.people.length === 0;
-  const icp = activeIcp();
-  if (!icp || icp.status !== "approved") {
-    return NextResponse.json({ error: "Approve an ICP first." }, { status: 409 });
+  const icp = resolveIcp(icpId);
+  if (!icp) {
+    return NextResponse.json({ error: "That profile no longer exists. Refresh the page." }, { status: 404 });
+  }
+  if (icp.status !== "approved") {
+    return NextResponse.json({ error: "Approve this profile first." }, { status: 409 });
   }
   const runId = mkId("run");
 

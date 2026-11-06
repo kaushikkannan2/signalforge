@@ -179,4 +179,10 @@ export const findPerson = (id: string) => db.people.find((p) => p.id === id);
 export const findLead = (id: string) => db.leads.find((l) => l.id === id);
 export const findMessage = (id: string) => db.messages.find((m) => m.id === id);
 export const signalsFor = (companyId: string) => db.signals.filter((s) => s.companyId === companyId);
-export const activeIcp = () => db.icps.find((i) => i.status === "approved") ?? db.icps[0];
+/** The newest approved profile, for callers that don't name one (such as scripts). */
+export const activeIcp = () =>
+  db.icps.findLast((i) => i.status === "approved") ?? db.icps.at(-1);
+
+/** The page names the profile it is showing, so a step never picks one for the user. */
+export const resolveIcp = (icpId?: string) =>
+  icpId ? db.icps.find((i) => i.id === icpId) : activeIcp();

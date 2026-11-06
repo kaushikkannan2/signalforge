@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { activeIcp, db } from "@/lib/db";
+import { db, resolveIcp } from "@/lib/db";
 import { draftSequence, reviewMessage, type VariantKey } from "@/lib/outreach";
 import { emit } from "@/lib/thinking";
 import { id as mkId } from "@/lib/ids";
@@ -15,7 +15,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { personIds, variant, review = true, forceVariant = false } = (await req
+  const { personIds, variant, review = true, forceVariant = false, icpId } = (await req
     .json()
     .catch(() => ({}))) as {
     personIds?: string[];
@@ -23,11 +23,15 @@ export async function POST(req: NextRequest) {
     review?: boolean;
     /** Forces the arm, bypassing the policy. Used for head-to-head comparison. */
     forceVariant?: boolean;
+    icpId?: string;
   };
 
-  const icp = activeIcp();
-  if (!icp || icp.status !== "approved") {
-    return NextResponse.json({ error: "Approve an ICP first." }, { status: 409 });
+  const icp = resolveIcp(icpId);
+  if (!icp) {
+    return NextResponse.json({ error: "That profile no longer exists. Refresh the page." }, { status: 404 });
+  }
+  if (icp.status !== "approved") {
+    return NextResponse.json({ error: "Approve this profile first." }, { status: 409 });
   }
 
   // Default to the highest-fit enriched contacts — drafting for a person with

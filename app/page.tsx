@@ -39,6 +39,16 @@ import type {
   Signal,
 } from "@/lib/types";
 
+const PINNED_ICP_KEY = "signalforge.icp";
+
+function readPinnedIcp(): string | null {
+  try {
+    return sessionStorage.getItem(PINNED_ICP_KEY);
+  } catch {
+    return null;
+  }
+}
+
 export default function Workspace() {
   const [view, setView] = useState<ViewKey>("intake");
   // "launch" is the single-field entry screen; "workspace" is the operating
@@ -68,6 +78,7 @@ export default function Workspace() {
   const [graphFocus, setGraphFocus] = useState<string | undefined>();
   const [learning, setLearning] = useState<LearningData | null>(null);
   const [summary, setSummary] = useState<string | undefined>();
+  const [summaries, setSummaries] = useState<Record<string, string>>({});
   const [expansionPending, setExpansionPending] = useState(false);
   const [questions, setQuestions] = useState<any[]>([]);
   const [clarifyOpen, setClarifyOpen] = useState(false);
@@ -78,6 +89,16 @@ export default function Workspace() {
   const [description, setDescription] = useState("");
   const [features, setFeatures] = useState("");
   const [acv, setAcv] = useState("");
+
+  // sessionStorage is per tab, so a refresh keeps this tab on its own profile.
+  useEffect(() => {
+    if (!icp) return;
+    try {
+      sessionStorage.setItem(PINNED_ICP_KEY, icp.id);
+    } catch {
+      // Storage can be blocked. The tab still keeps its profile until a refresh.
+    }
+  }, [icp]);
 
   const toast = useCallback((kind: Toast["kind"], title: string, detail?: string) => {
     const id = Math.random().toString(36).slice(2);
@@ -129,9 +150,14 @@ export default function Workspace() {
       if (p.people?.length) setPeople(p.people);
     }
     if (i?.icps?.length) {
+      // A tab stays on the profile it is showing. Jumping to the newest would
+      // let a run in another tab silently change what this tab's steps act on.
       const latest = i.icps[i.icps.length - 1];
-      setIcp(latest);
-      setSummary(i.summaries?.[latest.id]);
+      setIcp((current) => {
+        const wanted = current?.id ?? readPinnedIcp();
+        return i.icps.find((x: IcpDefinition) => x.id === wanted) ?? latest;
+      });
+      setSummaries(i.summaries ?? {});
       setExpansions(i.expansions ?? []);
       if ((i.expansions ?? []).length) setExpansionPending(false);
       // There is already state to operate on, so skip the entry screen.
@@ -299,7 +325,7 @@ export default function Workspace() {
 
   const findBuyers = () =>
     step("Finding and enriching buyers", async () => {
-      const d = await post("/api/buyers", { enrich: true });
+      const d = await post("/api/buyers", { enrich: true, icpId: icp?.id });
       setPeople(d.people ?? []);
       setLeads(d.leads ?? []);
       setView("buyers");
@@ -308,7 +334,7 @@ export default function Workspace() {
 
   const draftOutreach = () =>
     step("Drafting and reviewing sequences", async () => {
-      const d = await post("/api/outreach", { variant: "signal_led", review: true });
+      const d = await post("/api/outreach", { variant: "signal_led", review: true, icpId: icp?.id });
       setMessages(d.messages ?? []);
       setView("outreach");
       return { title: `${d.messages.length} touches drafted`, detail: "Awaiting your approval." };
@@ -656,7 +682,7 @@ export default function Workspace() {
                 {icp && (
                   <IcpView
                     icp={icp}
-                    summary={summary}
+                    summary={summaries[icp.id] ?? summary}
                     expansionPending={expansionPending}
                     onClarify={clarify}
                     expansions={expansions}

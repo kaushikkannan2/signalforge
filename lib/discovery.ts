@@ -18,6 +18,7 @@ import { emit, traced } from "./thinking";
 import { addCompany, addPerson, addSignal, db } from "./db";
 import { graph } from "./graph";
 import { id as mkId, now, slugId } from "./ids";
+import { actionableIcp } from "./grounding";
 import type {
   Company,
   Evidence,
@@ -37,21 +38,28 @@ import type {
  * and who inside them owns the pain.
  */
 export function planQueries(icp: IcpDefinition, limit = 6): string[] {
-  const verticals = icp.industries.value.map((i) => i.name);
+  // Parenthetical glosses like "(general)" are for reading, not for searching.
+  const verticals = icp.industries.value.map((i) => i.name.replace(/\s*\([^)]*\)/g, "").trim());
   const triggers = icp.triggerEvents.value
     .slice()
     .sort((a, b) => b.intentWeight - a.intentWeight)
     .map((t) => t.label);
-  const persona = icp.personas.value[0]?.title ?? "VP Sales";
+  // No defaults for a missing qualifier: a default here is an assumption the
+  // founder never made, so the query just gets broader.
+  const persona = icp.personas.value[0]?.title;
   const size = icp.headcountRange.value;
-  const geo = icp.geographies.value[0] ?? "United States";
+  const geo = icp.geographies.value[0] ?? "";
+  const sizeTerm = size.max ? `${size.min}-${size.max} employees ` : "";
+  const geoTerm = geo ? `${geo} ` : "";
+
+  if (!verticals.length) return [];
 
   const queries = [
-    `${verticals[0]} companies ${size.min}-${size.max} employees ${geo} 2026`,
+    `${verticals[0]} companies ${sizeTerm}${geoTerm}2026`,
     triggers[0] ? `${verticals[0]} company ${triggers[0]} announcement 2026` : null,
     triggers[1] ? `${verticals[1] ?? verticals[0]} ${triggers[1]} 2026` : null,
-    `${verticals[0]} companies hiring ${persona} 2026`,
-    verticals[1] ? `fast growing ${verticals[1]} companies ${geo} funding 2026` : null,
+    persona ? `${verticals[0]} companies hiring ${persona} 2026` : null,
+    verticals[1] ? `fast growing ${verticals[1]} companies ${geoTerm}funding 2026` : null,
     `${verticals[0]} startups scaling outbound sales team 2026`,
   ].filter((q): q is string => Boolean(q));
 
@@ -225,7 +233,7 @@ export function scoreFit(
   const { min, max } = icp.headcountRange.value;
   const hc = company.headcountEstimate;
   const sizeMatch =
-    hc === 0
+    hc === 0 || max === 0
       ? 8 // unknown is not the same as wrong; partial credit, visible as such
       : hc >= min && hc <= max
         ? 20
@@ -278,10 +286,12 @@ export interface DiscoveryResult {
 }
 
 export async function discoverAccounts(
-  icp: IcpDefinition,
+  profile: IcpDefinition,
   runId: string,
   opts: { maxQueries?: number; maxCompanies?: number } = {},
 ): Promise<DiscoveryResult> {
+  // Searches, disqualifiers and scoring only act on what the description supports.
+  const icp = actionableIcp(profile);
   const queries = planQueries(icp, opts.maxQueries ?? 5);
   emit(runId, "Discovery", "reasoning", `Planned ${queries.length} search angles`, {
     detail: queries.join(" · "),
@@ -311,13 +321,13 @@ export async function discoverAccounts(
 
   const prompt = `Approved ICP:
 Verticals: ${icp.industries.value.map((i) => `${i.name} (${i.naics})`).join(", ")}
-Headcount: ${icp.headcountRange.value.min}-${icp.headcountRange.value.max}
-Geographies: ${icp.geographies.value.join(", ")}
-Tech affinity: ${icp.techStackAffinity.value.slice(0, 10).join(", ")}
-Trigger events that matter: ${icp.triggerEvents.value.map((t) => t.label).join("; ")}
+Headcount: ${icp.headcountRange.value.max ? `${icp.headcountRange.value.min}-${icp.headcountRange.value.max}` : "not specified"}
+Geographies: ${icp.geographies.value.join(", ") || "not specified"}
+Tech affinity: ${icp.techStackAffinity.value.slice(0, 10).join(", ") || "not specified"}
+Trigger events that matter: ${icp.triggerEvents.value.map((t) => t.label).join("; ") || "not specified"}
 
 ICP negative signals (disqualifiers):
-${icp.negativeSignals.value.map((n) => `- ${n}`).join("\n")}
+${icp.negativeSignals.value.map((n) => `- ${n}`).join("\n") || "None. Do not disqualify any account."}
 
 Numbered search results:
 
@@ -479,10 +489,11 @@ interface RawPerson {
 }
 
 export async function discoverBuyers(
-  icp: IcpDefinition,
+  profile: IcpDefinition,
   runId: string,
   opts: { companyIds?: string[]; perCompany?: number } = {},
 ): Promise<Person[]> {
+  const icp = actionableIcp(profile);
   const targets = (
     opts.companyIds
       ? db.companies.filter((c) => opts.companyIds!.includes(c.id))
@@ -498,6 +509,12 @@ export async function discoverBuyers(
   }
 
   const personaTitles = icp.personas.value.map((p) => p.title);
+  if (!personaTitles.length) {
+    emit(runId, "Buyers", "error", "No supported buyer persona to search for", {
+      detail: "The description doesn't show who buys, so no search was run.",
+    });
+    return [];
+  }
   emit(runId, "Buyers", "reasoning", `Searching ${targets.length} accounts for role-matched buyers`, {
     detail: `Looking for: ${personaTitles.join(", ")}`,
   });

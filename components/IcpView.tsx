@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Citations, Confidence, ConfidenceDial } from "./Confidence";
+import type { Basis, Coverage, Grounding } from "@/lib/grounding";
 import type { IcpDefinition, IcpExpansion } from "@/lib/types";
 
 /* ---------------------------------------------------------------------------
@@ -35,6 +36,60 @@ const Chip = ({ children, tone }: { children: React.ReactNode; tone?: string }) 
   </span>
 );
 
+const BASIS_LABEL: Record<Basis, { text: string; tone: string; title: string }> = {
+  stated: {
+    text: "Stated",
+    tone: "var(--color-tempered)",
+    title: "Your description says this directly.",
+  },
+  derived: {
+    text: "Derived",
+    tone: "var(--color-steel-blue)",
+    title: "Follows from what your description says.",
+  },
+  assumed: {
+    text: "Best guess",
+    tone: "var(--color-molten)",
+    title: "Plausible, but your description doesn't show it. Not used for searches or filters.",
+  },
+  unknown: {
+    text: "Unknown",
+    tone: "var(--color-ink-faint)",
+    title: "Your description doesn't give enough to tell.",
+  },
+};
+
+function BasisBadge({ basis }: { basis: Basis }) {
+  const { text, tone, title } = BASIS_LABEL[basis];
+  return (
+    <span
+      className="mono rounded px-1.5"
+      title={title}
+      style={{ fontSize: "0.5625rem", color: tone, border: `1px solid ${tone}`, lineHeight: 1.6 }}
+    >
+      {text}
+    </span>
+  );
+}
+
+/** One line a founder can scan, with the gaps named rather than counted. */
+function CoverageSummary({ coverage }: { coverage: Coverage }) {
+  const gaps = coverage.items.filter((i) => i.basis === "unknown").map((i) => i.label);
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  return (
+    <p className="mt-2" style={{ fontSize: "0.8125rem", color: "var(--color-ink-soft)" }}>
+      <span style={{ color: "var(--color-tempered)" }}>{coverage.supported} supported</span>
+      {" · "}
+      <span style={{ color: "var(--color-molten)" }}>{coverage.bestGuesses} best {coverage.bestGuesses === 1 ? "guess" : "guesses"}</span>
+      {" · "}
+      {plural(coverage.gaps, "gap")}
+      {gaps.length > 0 && (
+        <span style={{ color: "var(--color-ink-faint)" }}> — not in your description: {gaps.join(", ")}</span>
+      )}
+    </p>
+  );
+}
+
 /**
  * The reasoning behind a field.
  *
@@ -43,7 +98,7 @@ const Chip = ({ children, tone }: { children: React.ReactNode; tone?: string }) 
  * someone who already suspects it is wrong. Most people opening this are
  * learning how the engine thinks, and that is a feature worth inviting.
  */
-function Reasoning({ text }: { text: string }) {
+function Reasoning({ text, grounding }: { text: string; grounding?: Grounding }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -56,8 +111,8 @@ function Reasoning({ text }: { text: string }) {
         how this was inferred
       </button>
       {open && (
-        <p
-          className="mt-1 pl-2.5 border-l-2"
+        <div
+          className="mt-1 pl-2.5 border-l-2 flex flex-col gap-1"
           style={{
             fontSize: "0.75rem",
             color: "var(--color-ink-soft)",
@@ -65,8 +120,16 @@ function Reasoning({ text }: { text: string }) {
             lineHeight: 1.5,
           }}
         >
-          {text}
-        </p>
+          <p>{text}</p>
+          {grounding?.quotes.map((q) => (
+            <q key={q} style={{ color: "var(--color-ink)" }}>
+              {q}
+            </q>
+          ))}
+          {grounding?.downgraded && (
+            <p style={{ color: "var(--color-molten)" }}>{grounding.downgraded.reason}</p>
+          )}
+        </div>
       )}
     </>
   );
@@ -118,22 +181,31 @@ function Group({
 function Field({
   label,
   rationale,
+  grounding,
   children,
 }: {
   label: string;
   rationale: string;
+  grounding?: Grounding;
   children: React.ReactNode;
 }) {
   return (
     <div>
-      <span className="rule-label" style={{ fontSize: "0.5625rem" }}>
-        {label}
+      <span className="flex items-center gap-2">
+        <span className="rule-label" style={{ fontSize: "0.5625rem" }}>
+          {label}
+        </span>
+        {grounding && <BasisBadge basis={grounding.basis} />}
       </span>
       <div className="mt-1" style={{ fontSize: "0.875rem" }}>
-        {children}
+        {grounding?.basis === "unknown" ? (
+          <span style={{ color: "var(--color-ink-faint)" }}>Not in your description</span>
+        ) : (
+          children
+        )}
       </div>
       <div className="mt-1">
-        <Reasoning text={rationale} />
+        <Reasoning text={rationale} grounding={grounding} />
       </div>
     </div>
   );
@@ -186,10 +258,11 @@ export function IcpView({
               One sentence to check. Open any section below to see the fields and how each
               was inferred.
             </p>
+            {icp.coverage && <CoverageSummary coverage={icp.coverage} />}
           </div>
           <div className="flex flex-col items-center gap-1.5 shrink-0">
             <ConfidenceDial value={icp.overallConfidence} size={84} />
-            {icp.overallConfidence < 0.65 && onClarify && (
+            {(icp.overallConfidence < 0.65 || (icp.coverage?.gaps ?? 0) > 0) && onClarify && (
               <button
                 onClick={onClarify}
                 disabled={busy}
@@ -212,9 +285,11 @@ export function IcpView({
             icp.revenueBand.confidence,
             icp.geographies.confidence,
           )}
-          preview={`${icp.industries.value.map((i) => i.name).join(", ")} · ${icp.headcountRange.value.tierLabel}`}
+          preview={[icp.industries.value.map((i) => i.name).join(", "), icp.headcountRange.value.tierLabel]
+            .filter(Boolean)
+            .join(" · ")}
         >
-          <Field label="Verticals (NAICS)" rationale={icp.industries.rationale}>
+          <Field label="Verticals (NAICS)" rationale={icp.industries.rationale} grounding={icp.industries.grounding}>
             {icp.industries.value.map((i) => (
               <Chip key={i.naics + i.name}>
                 <span className="mono" style={{ color: "var(--color-ink-faint)" }}>
@@ -224,16 +299,21 @@ export function IcpView({
               </Chip>
             ))}
           </Field>
-          <Field label="Size" rationale={icp.headcountRange.rationale}>
+          <Field label="Size" rationale={icp.headcountRange.rationale} grounding={icp.headcountRange.grounding}>
             <span className="grid-surface">
               {icp.headcountRange.value.tierLabel} ·{" "}
               <span className="mono">
                 {icp.headcountRange.value.min}–{icp.headcountRange.value.max}
               </span>{" "}
-              employees · {money(icp.revenueBand.value.min)}–{money(icp.revenueBand.value.max)} revenue
+              employees
             </span>
           </Field>
-          <Field label="Geographies" rationale={icp.geographies.rationale}>
+          <Field label="Revenue" rationale={icp.revenueBand.rationale} grounding={icp.revenueBand.grounding}>
+            <span className="grid-surface">
+              {money(icp.revenueBand.value.min)}–{money(icp.revenueBand.value.max)} revenue
+            </span>
+          </Field>
+          <Field label="Geographies" rationale={icp.geographies.rationale} grounding={icp.geographies.grounding}>
             {icp.geographies.value.map((g) => (
               <Chip key={g}>{g}</Chip>
             ))}
@@ -245,7 +325,7 @@ export function IcpView({
           confidence={groupConfidence(icp.personas.confidence, icp.triggerEvents.confidence)}
           preview={`${icp.personas.value.map((p) => p.title).join(", ")} · ${triggers.length} triggers`}
         >
-          <Field label="Buyer personas" rationale={icp.personas.rationale}>
+          <Field label="Buyer personas" rationale={icp.personas.rationale} grounding={icp.personas.grounding}>
             {/*
               Grid, not flex. As a flex row the seniority badge and the title
               both varied in width, so "measured on…" started at a different x
@@ -279,7 +359,11 @@ export function IcpView({
               ))}
             </div>
           </Field>
-          <Field label="Trigger events — ranked by predictive weight" rationale={icp.triggerEvents.rationale}>
+          <Field
+            label="Trigger events — ranked by predictive weight"
+            rationale={icp.triggerEvents.rationale}
+            grounding={icp.triggerEvents.grounding}
+          >
             {/* "+8" and "+16" differ by a digit, so a shrink-to-fit pill
                 shifted every label. Fixed column, right-aligned figure. */}
             <div className="flex flex-col gap-1.5">
@@ -315,7 +399,11 @@ export function IcpView({
           confidence={groupConfidence(icp.negativeSignals.confidence, icp.techStackAffinity.confidence)}
           preview={`${icp.negativeSignals.value.length} hard disqualifiers · ${icp.techStackAffinity.value.length} stack signals`}
         >
-          <Field label="Hard disqualifiers" rationale={icp.negativeSignals.rationale}>
+          <Field
+            label="Hard disqualifiers"
+            rationale={icp.negativeSignals.rationale}
+            grounding={icp.negativeSignals.grounding}
+          >
             <ul className="flex flex-col gap-1">
               {icp.negativeSignals.value.map((n) => (
                 <li
@@ -331,7 +419,11 @@ export function IcpView({
               ))}
             </ul>
           </Field>
-          <Field label="Tech stack affinity" rationale={icp.techStackAffinity.rationale}>
+          <Field
+            label="Tech stack affinity"
+            rationale={icp.techStackAffinity.rationale}
+            grounding={icp.techStackAffinity.grounding}
+          >
             {icp.techStackAffinity.value.map((t) => (
               <Chip key={t}>{t}</Chip>
             ))}

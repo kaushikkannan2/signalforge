@@ -6,6 +6,8 @@
 // ("mandatory inline source citations to eliminate hallucinations").
 // ============================================================================
 
+import type { Coverage, Grounding } from "./grounding";
+
 /** A single citation. `fetchedAt` lets the UI show how stale a claim is. */
 export interface Evidence {
   url: string;
@@ -26,6 +28,8 @@ export interface Scored<T> {
   /** Plain-language justification shown on hover in the UI. */
   rationale: string;
   evidence: Evidence[];
+  /** How far the founder's text supports this. Absent on fixtures and older snapshots. */
+  grounding?: Grounding;
 }
 
 // ---------------------------------------------------------------------------
@@ -89,6 +93,8 @@ export interface IcpDefinition {
   techStackAffinity: Scored<string[]>;
   /** Mean of all field confidences — the headline number in the UI. */
   overallConfidence: number;
+  /** What the description supported, against the checklist for a complete profile. */
+  coverage?: Coverage;
   status: "draft" | "approved";
   createdAt: string;
 }

@@ -15,6 +15,15 @@ import { db } from "./db";
 import { id as mkId, now } from "./ids";
 import { MODELS } from "./models";
 import { checkNaics, naicsConfidenceDelta, type NaicsCheck } from "./naics";
+import {
+  B2B_CHECKLIST,
+  actionableIcp,
+  applyGrounding,
+  capConfidence,
+  coverageOf,
+  groundingSource,
+  type RawGroundedField,
+} from "./grounding";
 import type { IcpDefinition, IcpExpansion, ProductIntake, Scored } from "./types";
 
 // --- schema ----------------------------------------------------------------
@@ -31,8 +40,20 @@ const scored = (valueSchema: Record<string, unknown>) => ({
       type: "string",
       description: "One sentence, plain language, shown to the founder on hover.",
     },
+    basis: {
+      type: "string",
+      enum: ["stated", "derived", "assumed", "unknown"],
+      description:
+        "How far the founder's text supports this field. Label by the weakest item you kept.",
+    },
+    quotes: {
+      type: "array",
+      items: { type: "string" },
+      description:
+        "Exact passages copied from the founder's text that support this field. Required for stated and derived. Empty for assumed and unknown.",
+    },
   },
-  required: ["value", "confidence", "rationale"],
+  required: ["value", "confidence", "rationale", "basis", "quotes"],
   additionalProperties: false,
 });
 
@@ -160,9 +181,26 @@ Rules you are held to:
 - Be selective. Respect the item limits you are given — a profile with ten
   mediocre disqualifiers is worse than one with five sharp ones, and the
   operator has to read every row you produce.
-- Rationales are one sentence. Not two.`;
+- Rationales are one sentence. Not two.
 
-type RawIcp = Record<keyof typeof ICP_SCHEMA.properties, Scored<unknown>>;
+The founder's text is your only source of facts. General knowledge may connect
+what they wrote to a conclusion, but it may not add facts they did not give.
+Label every field with a basis:
+- stated: the text says it. Quote the passage.
+- derived: a careful reader would reach this from the text alone. Quote the
+  passage it follows from, and let the rationale show the step.
+- assumed: plausible, but the text does not show it. No quotes.
+- unknown: the text gives no way to tell. Return an empty list, or zeros and
+  empty strings, and no quotes. Prefer this to inventing a value.
+Quotes are copied character for character and checked by code. A quote that is
+not in the text loses the field its basis.
+Keep only items with the same support. Do not pad a supported field with
+weaker items, because the field is labelled by its weakest item.
+Stay at the founder's level of detail. If they say "manufacturers", do not
+narrow it to machine shops or plastics: pick the broadest real category or
+NAICS code that matches their words, and name a sub-segment only if they did.`;
+
+type RawIcp = Record<keyof typeof ICP_SCHEMA.properties, RawGroundedField<unknown>>;
 
 /* ---------------------------------------------------------------------------
    Inference is split into three concurrent calls rather than one.
@@ -208,7 +246,12 @@ function sliceSchema(fields: readonly string[]) {
   } as unknown as Record<string, unknown>;
 }
 
-export async function inferIcp(intake: ProductIntake, runId: string): Promise<IcpDefinition> {
+export async function inferIcp(
+  intake: ProductIntake,
+  runId: string,
+  /** Overrides the quote-check text when the intake carries system-written wrapping. */
+  opts: { groundingText?: string } = {},
+): Promise<IcpDefinition> {
   const context = `Company: ${intake.companyName}
 Product: ${intake.productName}
 
@@ -236,7 +279,7 @@ ${intake.technicalConstraints?.length ? `Constraints:\n${intake.technicalConstra
         "reasoning",
         `${slice}: ${SLICES[slice].join(", ")}`,
         () =>
-          structured<Record<string, Scored<unknown>>>(
+          structured<Record<string, RawGroundedField<unknown>>>(
             `${SLICE_BRIEF[slice]}\n\n${context}`,
             {
               system: ICP_SYSTEM,
@@ -271,32 +314,51 @@ ${intake.technicalConstraints?.length ? `Constraints:\n${intake.technicalConstra
   }
 
   // An ICP is inferred from the founder's own words, not from public sources,
-  // so it is honest for it to carry no citations. Discovery is where citations
-  // become mandatory.
-  const withEvidence = <T>(sc: Scored<T>): Scored<T> => ({ ...sc, evidence: sc.evidence ?? [] });
+  // so its support is quotes from that text rather than web citations.
+  // Discovery is where citations become mandatory.
+  const source = opts.groundingText ?? groundingSource(intake);
+  const ground = <T>(field: RawGroundedField<unknown>): Scored<T> => ({
+    ...applyGrounding(field as RawGroundedField<T>, source),
+    evidence: [],
+  });
 
-  const fields = Object.values(data) as Scored<unknown>[];
-  const overall = fields.reduce((sum, f) => sum + (f?.confidence ?? 0), 0) / fields.length;
+  const grounded = {
+    industries: ground<{ name: string; naics: string }[]>(data.industries),
+    headcountRange: ground<{ min: number; max: number; tierLabel: string }>(data.headcountRange),
+    revenueBand: ground<{ min: number; max: number; currency: string }>(data.revenueBand),
+    geographies: ground<string[]>(data.geographies),
+    personas: ground<IcpDefinition["personas"]["value"]>(data.personas),
+    triggerEvents: ground<IcpDefinition["triggerEvents"]["value"]>(data.triggerEvents),
+    negativeSignals: ground<string[]>(data.negativeSignals),
+    techStackAffinity: ground<string[]>(data.techStackAffinity),
+  };
+
+  const fields = Object.values(grounded) as Scored<unknown>[];
+  const overall = fields.reduce((sum, f) => sum + f.confidence, 0) / fields.length;
+  const coverage = coverageOf(grounded, B2B_CHECKLIST);
 
   const icp: IcpDefinition = {
     id: mkId("icp"),
     intakeId: intake.id,
-    industries: withEvidence(data.industries as Scored<{ name: string; naics: string }[]>),
-    headcountRange: withEvidence(
-      data.headcountRange as Scored<{ min: number; max: number; tierLabel: string }>,
-    ),
-    revenueBand: withEvidence(
-      data.revenueBand as Scored<{ min: number; max: number; currency: string }>,
-    ),
-    geographies: withEvidence(data.geographies as Scored<string[]>),
-    personas: withEvidence(data.personas as IcpDefinition["personas"]),
-    triggerEvents: withEvidence(data.triggerEvents as IcpDefinition["triggerEvents"]),
-    negativeSignals: withEvidence(data.negativeSignals as Scored<string[]>),
-    techStackAffinity: withEvidence(data.techStackAffinity as Scored<string[]>),
+    ...grounded,
     overallConfidence: Number(overall.toFixed(2)),
+    coverage,
     status: "draft",
     createdAt: now(),
   };
+
+  const downgraded = Object.entries(grounded).filter(([, f]) => f.grounding?.downgraded);
+  emit(
+    runId,
+    "ICP inference",
+    "validation",
+    `Coverage: ${coverage.supported} supported, ${coverage.bestGuesses} best guesses, ${coverage.gaps} gaps`,
+    {
+      detail: downgraded.length
+        ? `Downgraded by the quote check: ${downgraded.map(([name]) => name).join(", ")}.`
+        : "Every stated and derived field passed the quote check.",
+    },
+  );
 
   emit(
     runId,
@@ -577,7 +639,7 @@ ${intake.description}
 Reference customers given: ${intake.referenceCustomers.length ? intake.referenceCustomers.join("; ") : "NONE"}
 Pricing: ${intake.pricingModel ?? "not stated"} · ACV: ${intake.averageContractValue ?? "not stated"}
 
-Ask at most 4 questions whose answers would most raise confidence in those
+Ask at most 3 questions whose answers would most raise confidence in those
 fields. Rules:
 - One fact per question. No compound questions.
 - Ask only what the founder plausibly knows off the top of their head.
@@ -645,13 +707,20 @@ ${answered.map((a) => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}`,
     detail: `Previous overall confidence ${(previous.overallConfidence * 100).toFixed(0)}%. Facts now treated as given rather than extrapolated.`,
   });
 
-  const next = await inferIcp(enrichedIntake, runId);
+  // The enriched description wraps the answers in system-written questions, and
+  // a quote from those would pass the check without the founder having said it.
+  const next = await inferIcp(enrichedIntake, runId, {
+    groundingText: [groundingSource(intake), ...answered.map((a) => a.answer)].join("\n"),
+  });
 
   // Deterministic verification of the codes, applied as a small adjustment.
   const naics = next.industries.value.map((i) => checkNaics(i.naics));
   const { delta, rationale } = naicsConfidenceDelta(naics);
   if (delta !== 0) {
-    next.industries.confidence = Math.max(0, Math.min(1, next.industries.confidence + delta));
+    next.industries.confidence = capConfidence(
+      Math.min(1, next.industries.confidence + delta),
+      next.industries.grounding?.basis ?? "stated",
+    );
     next.industries.rationale = `${next.industries.rationale} ${rationale}`;
     emit(runId, "ICP re-inference", "validation", `NAICS verification: ${delta > 0 ? "+" : ""}${(delta * 100).toFixed(1)}pts`, {
       detail: naics.map((c) => `${c.code} ${c.verdict}${c.officialTitle ? ` (${c.officialTitle})` : ""}`).join(" · "),
@@ -826,7 +895,14 @@ function tidyTrigger(label: string): string {
   return /^(they|a|an|the)\b/i.test(lower) ? `when ${lower}` : `right after ${lower}`;
 }
 
-export function summariseIcp(icp: IcpDefinition): string {
+export function summariseIcp(profile: IcpDefinition): string {
+  // The sentence a founder checks first states only what their text supports.
+  // Best guesses stay in the sections below, labelled as guesses.
+  const icp = actionableIcp(profile);
+  if (!icp.industries.value.length && !icp.personas.value.length) {
+    return "Your description doesn't yet say who you sell to.";
+  }
+
   // Industry names arrive long and official ("Computing infrastructure, data
   // processing, and hosting (SaaS delivery)"). A summary has to be readable, so
   // take the head of each name and drop the parenthetical gloss.

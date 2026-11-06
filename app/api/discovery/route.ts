@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, activeIcp } from "@/lib/db";
 import { discoverAccounts } from "@/lib/discovery";
 import { mapCompetitors } from "@/lib/competitors";
+import { actionableIcp } from "@/lib/grounding";
 import { emit } from "@/lib/thinking";
 import { id as mkId } from "@/lib/ids";
 
@@ -35,6 +36,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Discovery searches by market, so it needs one the description supports.
+  const target = actionableIcp(icp);
+  if (!target.industries.value.length) {
+    return NextResponse.json(
+      {
+        error:
+          "Your description doesn't say which market you sell to, so there is nothing reliable to search. Add that and run it again.",
+      },
+      { status: 409 },
+    );
+  }
+
   const intake = db.intakes.find((i) => i.id === icp.intakeId);
   if (!intake) return NextResponse.json({ error: "Intake not found" }, { status: 404 });
 
@@ -46,7 +59,7 @@ export async function POST(req: NextRequest) {
     const [discovery, competitors] = await Promise.all([
       discoverAccounts(icp, runId),
       includeCompetitors
-        ? mapCompetitors(intake, icp, runId).catch((err) => {
+        ? mapCompetitors(intake, target, runId).catch((err) => {
             emit(runId, "Competitors", "error", "Competitor mapping failed — accounts unaffected", {
               detail: err instanceof Error ? err.message : String(err),
             });

@@ -223,6 +223,9 @@ button:not(:disabled):active {
   color: var(--color-ember);
   border: 1px solid rgba(255, 122, 69, 0.45);
 }
+.clarify-dialog::backdrop {
+  background: rgba(3, 6, 12, 0.6);
+}
 .btn-quiet {
   background: var(--color-surface-2);
   color: var(--color-ink-soft);

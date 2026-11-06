@@ -13,6 +13,7 @@ import {
   type ViewKey,
 } from "@/components/Shell";
 import { ThinkingPanel } from "@/components/ThinkingPanel";
+import { ClarifyDialog } from "@/components/ClarifyDialog";
 import { IcpView } from "@/components/IcpView";
 import { AccountGrid, SignalFeed } from "@/components/AccountGrid";
 import { CompetitorPanel } from "@/components/CompetitorPanel";
@@ -69,6 +70,7 @@ export default function Workspace() {
   const [summary, setSummary] = useState<string | undefined>();
   const [expansionPending, setExpansionPending] = useState(false);
   const [questions, setQuestions] = useState<any[]>([]);
+  const [clarifyOpen, setClarifyOpen] = useState(false);
 
   // intake form
   const [companyName, setCompanyName] = useState("");
@@ -246,8 +248,12 @@ export default function Workspace() {
       return { title: "ICP inferred from the example product" };
     });
 
-  const clarify = () =>
-    step("Finding what would raise confidence", async () => {
+  const clarify = () => {
+    // Opens straight away: the questions take a few seconds, and a click that
+    // shows nothing for that long reads as a click that did nothing.
+    setQuestions([]);
+    setClarifyOpen(true);
+    return step("Finding what would raise confidence", async () => {
       const d = await post("/api/icp", { action: "clarify", icpId: icp!.id });
       setQuestions(d.questions ?? []);
       return {
@@ -255,17 +261,19 @@ export default function Workspace() {
         detail: "Answer what you know — the rest can stay blank.",
       };
     });
+  };
 
   const reinfer = (answers: { question: string; answer: string }[]) =>
     step("Re-inferring with your answers", async () => {
       const d = await post("/api/icp", { action: "reinfer", icpId: icp!.id, answers });
       setIcp(d.icp);
       setQuestions([]);
+      setClarifyOpen(false);
       await hydrate();
       const delta = Math.round((d.after - d.before) * 100);
       return {
         title: `Confidence ${Math.round(d.before * 100)}% → ${Math.round(d.after * 100)}%`,
-        detail: delta > 0 ? `+${delta} points from ${answers.filter((a) => a.answer.trim()).length} answers` : "Those answers did not reduce uncertainty.",
+        detail: delta > 0 ? `+${delta} points from ${answers.length} ${answers.length === 1 ? "answer" : "answers"}` : "Those answers did not reduce uncertainty.",
       };
     });
 
@@ -659,6 +667,16 @@ export default function Workspace() {
                       toast("ok", `Segment ${decision}`);
                     }}
                     busy={Boolean(busy)}
+                  />
+                )}
+                {clarifyOpen && (
+                  <ClarifyDialog
+                    key={questions.map((q) => q.question).join("|")}
+                    questions={questions}
+                    loading={busy === "Finding what would raise confidence"}
+                    submitting={busy === "Re-inferring with your answers"}
+                    onSubmit={reinfer}
+                    onClose={() => setClarifyOpen(false)}
                   />
                 )}
               </div>

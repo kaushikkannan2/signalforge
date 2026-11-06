@@ -262,7 +262,7 @@ export function IcpView({
           </div>
           <div className="flex flex-col items-center gap-1.5 shrink-0">
             <ConfidenceDial value={icp.overallConfidence} size={84} />
-            {(icp.overallConfidence < 0.65 || (icp.coverage?.gaps ?? 0) > 0) && onClarify && (
+            {!approved && (icp.overallConfidence < 0.65 || (icp.coverage?.gaps ?? 0) > 0) && onClarify && (
               <button
                 onClick={onClarify}
                 disabled={busy}

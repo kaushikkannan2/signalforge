@@ -163,7 +163,10 @@ export function applyGrounding<T>(raw: RawGroundedField<T>, source: string): Gro
 export const isActionable = (field: { grounding?: Grounding }): boolean =>
   !field.grounding || field.grounding.basis === "stated" || field.grounding.basis === "derived";
 
-/** Everything the founder actually said, and nothing the system wrote around it. */
+/**
+ * Everything the founder actually said, and nothing the system wrote around it.
+ * Confirmed facts contribute their answers only: a question is our wording.
+ */
 export function groundingSource(intake: ProductIntake): string {
   return [
     intake.companyName,
@@ -174,6 +177,7 @@ export function groundingSource(intake: ProductIntake): string {
     intake.pricingModel,
     intake.averageContractValue,
     ...(intake.technicalConstraints ?? []),
+    ...(intake.confirmedFacts ?? []).map((f) => f.answer),
   ]
     .filter((part) => part !== undefined && part !== null && part !== "")
     .join("\n");

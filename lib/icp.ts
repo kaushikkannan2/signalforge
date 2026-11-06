@@ -638,7 +638,7 @@ What the founder originally told us:
 ${intake.description}
 Reference customers given: ${intake.referenceCustomers.length ? intake.referenceCustomers.join("; ") : "NONE"}
 Pricing: ${intake.pricingModel ?? "not stated"} · ACV: ${intake.averageContractValue ?? "not stated"}
-
+${intake.confirmedFacts?.length ? `\nAlready answered, so do not ask these again:\n${intake.confirmedFacts.map((f) => `Q: ${f.question}\nA: ${f.answer}`).join("\n")}\n` : ""}
 Ask at most 3 questions whose answers would most raise confidence in those
 fields. Rules:
 - One fact per question. No compound questions.
@@ -686,21 +686,24 @@ export async function reinferIcp(
   runId: string,
 ): Promise<{ icp: IcpDefinition; deltas: IcpDelta[]; naics: NaicsCheck[] }> {
   const answered = answers.filter((a) => a.answer.trim().length > 0);
+  // Earlier rounds count too, or a second round would forget the first.
+  const confirmedFacts = [...(intake.confirmedFacts ?? []), ...answered];
+  // Any answer naming customers becomes a reference customer, which is the
+  // field that was doing the most damage.
+  const referenceCustomers = [
+    ...intake.referenceCustomers,
+    ...answered
+      .filter((a) => /customer|client|paid|bought|logo|account/i.test(a.question))
+      .map((a) => a.answer),
+  ];
 
   const enrichedIntake: ProductIntake = {
     ...intake,
     description: `${intake.description}
 
 ADDITIONAL FACTS THE FOUNDER CONFIRMED (treat these as given, not inferred):
-${answered.map((a) => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}`,
-    // Any answer naming customers becomes a reference customer, which is the
-    // field that was doing the most damage.
-    referenceCustomers: [
-      ...intake.referenceCustomers,
-      ...answered
-        .filter((a) => /customer|client|paid|bought|logo|account/i.test(a.question))
-        .map((a) => a.answer),
-    ],
+${confirmedFacts.map((a) => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}`,
+    referenceCustomers,
   };
 
   emit(runId, "ICP re-inference", "reasoning", `Re-inferring with ${answered.length} confirmed facts`, {
@@ -710,8 +713,13 @@ ${answered.map((a) => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}`,
   // The enriched description wraps the answers in system-written questions, and
   // a quote from those would pass the check without the founder having said it.
   const next = await inferIcp(enrichedIntake, runId, {
-    groundingText: [groundingSource(intake), ...answered.map((a) => a.answer)].join("\n"),
+    groundingText: groundingSource({ ...intake, confirmedFacts, referenceCustomers }),
   });
+
+  // Stored only after inference succeeds, so retrying a failed round cannot
+  // record the same answers twice.
+  intake.confirmedFacts = confirmedFacts;
+  intake.referenceCustomers = referenceCustomers;
 
   // Deterministic verification of the codes, applied as a small adjustment.
   const naics = next.industries.value.map((i) => checkNaics(i.naics));

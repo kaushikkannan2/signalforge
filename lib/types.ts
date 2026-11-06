@@ -47,6 +47,8 @@ export interface ProductIntake {
   pricingModel?: string;
   averageContractValue?: string;
   technicalConstraints?: string[];
+  /** Answers given in clarification rounds, kept so later rounds build on them. */
+  confirmedFacts?: { question: string; answer: string }[];
   createdAt: string;
 }
 

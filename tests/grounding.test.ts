@@ -155,6 +155,23 @@ describe("groundingSource", () => {
   });
 });
 
+describe("groundingSource with confirmed facts", () => {
+  it("accepts the founder's answer but not our question", () => {
+    const text = groundingSource({
+      id: "i",
+      companyName: "",
+      productName: "",
+      description: "Meal kits.",
+      features: [],
+      referenceCustomers: [],
+      confirmedFacts: [{ question: "Who has paid you the most?", answer: "Hospitals in Ohio" }],
+      createdAt: "now",
+    });
+    assert.equal(quoteExists("Hospitals in Ohio", text), true);
+    assert.equal(quoteExists("paid you the most", text), false);
+  });
+});
+
 describe("coverageOf", () => {
   it("counts each basis and treats a missing field as a gap", () => {
     const g = (basis: "stated" | "derived" | "assumed" | "unknown") => ({

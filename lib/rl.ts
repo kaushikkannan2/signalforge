@@ -83,6 +83,8 @@ export interface RewardEvent {
   context: ContextId;
   arm: ArmId;
   reward: number;
+  /** True when written by simulateConvergence rather than a real outcome. */
+  simulated?: boolean;
   source: "approval" | "rejection" | "reply" | "meeting";
   messageId?: string;
   at: string;
@@ -212,6 +214,101 @@ export function selectVariant(
   }
 
   return { variant: best.variant, channel: best.channel, arm: chosen, context: ctx, sampled, reason };
+}
+
+/* --- convergence demonstration -------------------------------------------- */
+
+/**
+ * Replays N synthetic outcomes through the real update rule so an audience can
+ * watch the posteriors narrow and a winner separate.
+ *
+ * This is a teaching aid and it is labelled as one everywhere it surfaces. The
+ * outcomes are drawn from fixed latent rates rather than observed from real
+ * recipients — what it demonstrates is the *update rule*, not engagement we
+ * measured. Every reward event it writes carries simulated:true, the UI prints
+ * a banner, and learningReport() reports the count separately, because a
+ * convergence curve built from invented data and presented as real would be
+ * the most dishonest thing in this product.
+ *
+ * The latent rates differ per context on purpose: signal-led wins decisively on
+ * execs with a trigger, and the gap narrows further down the org, so the
+ * contextual part of "contextual bandit" is visible rather than asserted.
+ */
+const LATENT: Record<string, Record<ArmId, number>> = {
+  "exec|signal": { "signal-led|email": 0.42, "peer-proof|email": 0.14, "signal-led|linkedin": 0.33, "peer-proof|linkedin": 0.11 },
+  "exec|cold": { "signal-led|email": 0.12, "peer-proof|email": 0.09, "signal-led|linkedin": 0.10, "peer-proof|linkedin": 0.08 },
+  "leader|signal": { "signal-led|email": 0.31, "peer-proof|email": 0.26, "signal-led|linkedin": 0.22, "peer-proof|linkedin": 0.19 },
+  "leader|cold": { "signal-led|email": 0.14, "peer-proof|email": 0.13, "signal-led|linkedin": 0.11, "peer-proof|linkedin": 0.10 },
+  "operator|signal": { "signal-led|email": 0.24, "peer-proof|email": 0.28, "signal-led|linkedin": 0.18, "peer-proof|linkedin": 0.21 },
+  "operator|cold": { "signal-led|email": 0.11, "peer-proof|email": 0.12, "signal-led|linkedin": 0.09, "peer-proof|linkedin": 0.10 },
+};
+
+/** Deterministic PRNG, so the same button press gives the same demo twice. */
+function mulberry32(a: number) {
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export interface SimulationStep {
+  n: number;
+  /** Posterior interval half-width of the leading arm, per context. */
+  width: Record<ContextId, number>;
+  leader: Record<ContextId, ArmId>;
+}
+
+export function simulateConvergence(rounds = 240, seed = 7): SimulationStep[] {
+  const rand = mulberry32(seed);
+  const contexts = Object.keys(LATENT);
+  const trail: SimulationStep[] = [];
+
+  for (let i = 1; i <= rounds; i++) {
+    const ctx = contexts[Math.floor(rand() * contexts.length)];
+    // Choose by the real policy, not by cheating toward the known-best arm.
+    let best: ArmId = ARMS[0] && armId(ARMS[0].variant, ARMS[0].channel);
+    let bestDraw = -1;
+    for (const a of ARMS) {
+      const arm = armId(a.variant, a.channel);
+      const p = posterior(ctx, arm);
+      const draw = sampleBeta(p.alpha, p.beta);
+      if (draw > bestDraw) { bestDraw = draw; best = arm; }
+    }
+    const p = posterior(ctx, best);
+    const hit = rand() < (LATENT[ctx]?.[best] ?? 0.1);
+    p.pulls += 1;
+    if (hit) { p.alpha += 1; p.rewards += 1; } else { p.beta += 1; }
+    state.rewards.push({
+      id: mkId("rw"), context: ctx, arm: best,
+      reward: hit ? 1 : 0, source: hit ? "approval" : "rejection",
+      messageId: "simulated", at: now(), simulated: true,
+    });
+
+    if (i % 10 === 0 || i === rounds) {
+      const width: Record<string, number> = {};
+      const leader: Record<string, ArmId> = {};
+      for (const c of contexts) {
+        let top: ArmId = best, topMean = -1, topW = 1;
+        for (const a of ARMS) {
+          const arm = armId(a.variant, a.channel);
+          const q = posterior(c, arm);
+          const mean = q.alpha / (q.alpha + q.beta);
+          if (mean > topMean) {
+            topMean = mean;
+            top = arm;
+            topW = 1.96 * Math.sqrt((q.alpha * q.beta) / ((q.alpha + q.beta) ** 2 * (q.alpha + q.beta + 1)));
+          }
+        }
+        width[c] = topW;
+        leader[c] = top;
+      }
+      trail.push({ n: i, width, leader });
+    }
+  }
+  return trail;
 }
 
 /* --- reward --------------------------------------------------------------- */
@@ -368,6 +465,8 @@ export interface LearningReport {
     posteriors: (ArmPosterior & { mean: number; ciLow: number; ciHigh: number })[];
     totalPulls: number;
     totalReward: number;
+    /** How many of the observations above came from simulateConvergence. */
+    simulatedPulls: number;
     recentDecisions: BanditState["decisions"];
   };
   preference: {
@@ -387,6 +486,16 @@ export interface LearningReport {
 }
 
 export function learningReport(): LearningReport {
+  // Posteriors are created lazily on first touch, so an arm that has never been
+  // sampled in a given context simply would not exist — and the panel would
+  // silently show three arms where the policy actually has four. An unsampled
+  // arm is not a missing arm; it is an arm at its prior, and that is exactly
+  // what the audience needs to see. So materialise the full cross product of
+  // every observed context with every arm before reporting.
+  for (const ctx of new Set([...state.posteriors.values()].map((p) => p.context))) {
+    for (const a of ARMS) posterior(ctx, armId(a.variant, a.channel));
+  }
+
   const posteriors = [...state.posteriors.values()].map((p) => {
     const mean = p.alpha / (p.alpha + p.beta);
     // Normal approximation to the Beta — adequate for a display interval, and
@@ -411,6 +520,9 @@ export function learningReport(): LearningReport {
       posteriors: posteriors.sort((a, b) => b.mean - a.mean),
       totalPulls: posteriors.reduce((s, p) => s + p.pulls, 0),
       totalReward: state.rewards.reduce((s, r) => s + r.reward, 0),
+      // Surfaced so the UI can say plainly how much of what is on screen came
+      // from a teaching simulation rather than from real recipients.
+      simulatedPulls: state.rewards.filter((r) => r.simulated).length,
       recentDecisions: state.decisions.slice(-12).reverse(),
     },
     preference: {

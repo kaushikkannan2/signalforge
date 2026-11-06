@@ -14,9 +14,10 @@ questions. §6 is what *not* to say. §7 is practice drills.
 
 Memorise this. It is the only thing you must say word-for-word.
 
-> **"Every AI GTM tool hands you a confident score. We built the one that shows
-> you the sentence and the URL it came from — and refuses to send anything a
-> human hasn't approved."**
+> **"Building a pipeline for a new product takes a week of spreadsheets and
+> four enrichment vendors — and nobody can tell which rows are true. We built
+> the one that shows you the sentence and the URL every claim came from, and
+> refuses to send anything a human hasn't approved."**
 
 Why this sentence and not a feature list: it names a shared frustration in the
 first clause, states your differentiator in the second, and the third clause
@@ -219,8 +220,12 @@ document.
 - **Three multi-hop queries**, each written twice — real Cypher and an
   in-process traversal — kept adjacent so they can't diverge.
 - **Storage topology**: in-process graph is the system of record; Neo4j is a
-  write-through mirror. Two reasons: demo determinism, and the Cypher on screen
-  is the query that *would* run rather than a decorative string.
+  write-through mirror that also executes the Cypher (`lib/providers/neo4j.ts`).
+  Two reasons: demo determinism, and the Cypher on screen is a query that
+  genuinely runs — `/api/graph` reports a per-query `ran` flag.
+  **Say the status if asked:** the adapter is written and reports honestly, but
+  no managed instance is attached to this build, so it has not been verified
+  against a live database.
 - **Bounded traversal**: former-employer overlap is deliberately dense so warm
   paths exist at all, which makes an unbounded walk effectively quadratic. We
   take the best N and **report the bound** rather than silently truncating.

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { resetDb } from "@/lib/db";
+import { resetShapes } from "@/lib/enrichment";
 import { resetIds } from "@/lib/ids";
 import { suppressHydration } from "@/lib/persist";
 import { resetBandit } from "@/lib/rl";
@@ -16,6 +17,7 @@ import { emit } from "@/lib/thinking";
  * from rehydrating over the top of it.
  */
 export async function POST() {
+  resetShapes();
   resetDb();
   resetIds();
   resetBandit();

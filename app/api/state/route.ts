@@ -4,6 +4,7 @@ import { graph } from "@/lib/graph";
 import { dataMode, tavilyConfigured } from "@/lib/providers/tavily";
 import { isFastModeAvailable, totalCostUsd, usageLedger } from "@/lib/providers/anthropic";
 import { autoHydrate } from "@/lib/persist";
+import { neo4jConfigured } from "@/lib/providers/neo4j";
 
 
 /** Everything the dashboard needs in one round trip. */
@@ -17,7 +18,7 @@ export async function GET() {
       tavily: tavilyConfigured(),
       hunter: Boolean(process.env.HUNTER_API_KEY),
       resend: Boolean(process.env.RESEND_API_KEY),
-      neo4j: Boolean(process.env.NEO4J_URI),
+      neo4j: neo4jConfigured(),
       flexprice: Boolean(process.env.FLEXPRICE_API_KEY),
       band: Boolean(process.env.BAND_PLANNER_API_KEY),
     },

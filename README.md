@@ -74,7 +74,7 @@ and a capability that isn't wired says so instead of pretending.
 | `HUNTER_API_KEY` | Falls back to DNS MX validation + pattern inference, labelled as such. |
 | `RESEND_API_KEY` | Dispatch records as `simulated`, never as `sent`. |
 | `FLEXPRICE_API_KEY` | Metered locally only; each event records that the mirror failed. |
-| `NEO4J_URI` | In-process graph with real multi-hop traversal. |
+| `NEO4J_URI` | In-process graph with real multi-hop traversal. With it set, the graph is mirrored with `MERGE` and the same Cypher is executed against Neo4j — the response reports whether it actually ran. |
 | `BAND_*` | Multi-agent roles run in-process instead of in a Band room. |
 | `SNYK_TOKEN` | CI security job is skipped. |
 
@@ -133,7 +133,7 @@ Pipeline ────────────── Matched → Contacted → Re
 **One datastore, deliberately.** Leads, stages, messages and meter events all
 live as graph nodes, so the graph is load-bearing rather than a decorative
 side-copy that can drift. The in-process graph is the system of record and
-Neo4j is a write-through mirror; the three reasoning queries are written twice
+Neo4j is a write-through mirror which also executes the Cypher; the three reasoning queries are written twice
 — once as real Cypher, once as a traversal — and kept adjacent in
 `lib/reasoning.ts` so they cannot tell different stories.
 
@@ -141,7 +141,7 @@ Neo4j is a write-through mirror; the three reasoning queries are written twice
 |---|---|
 | Reasoning | Claude Opus 5 (ICP, extraction, review), Sonnet 5 (drafting) |
 | Discovery | Tavily, with verbatim snippets — never LLM-paraphrased |
-| Graph | In-process traversal, Neo4j write-through when configured |
+| Graph | In-process traversal (system of record) + Neo4j write-through and Cypher execution when `NEO4J_URI` is set — **adapter written, not yet verified against a live instance** |
 | Enrichment | Hunter.io, Node `dns.resolveMx`, pattern inference |
 | Dispatch | Resend |
 | Metering | Flexprice `/v1/events` + local enforcement ledger |
@@ -290,6 +290,15 @@ hundredth account is cheaper to work than the first.
 ---
 
 ## Honest limitations
+
+- **The Neo4j mirror is unverified.** `lib/providers/neo4j.ts` implements schema
+  constraints, batched `UNWIND`/`MERGE` write-through and real Cypher execution,
+  and `/api/graph` reports whether the mirror and each query actually ran. But
+  there is no managed instance attached to this build, so none of it has been
+  exercised against a live database. Earlier versions of this README claimed the
+  Cypher "runs against Neo4j when configured" while no code existed to run it —
+  that was wrong, and it is the kind of claim worth stating the status of
+  explicitly rather than leaving to inference.
 
 - Pipeline state is in-process. It survives a page reload (the UI rehydrates
   from the API) but not a server restart. Neo4j is the production answer.

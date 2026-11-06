@@ -2,11 +2,15 @@
 // The knowledge graph.
 //
 // Design note (documented in the system-design doc too): the in-process graph
-// is the system of record, and Neo4j is a write-through mirror that also serves
-// the showcase Cypher. Two reasons: the demo stays deterministic even if Aura is
-// cold or absent, and the multi-hop queries below are expressed twice — once as
-// real Cypher, once as a traversal — so the Cypher shown in the UI is the
-// genuine query, not a decorative string.
+// is the system of record, and Neo4j (lib/providers/neo4j.ts) is a
+// write-through mirror which also EXECUTES the showcase Cypher. Two reasons:
+// the demo stays deterministic even if the managed instance is cold or absent,
+// and the multi-hop queries are expressed twice — once as real Cypher, once as
+// a traversal — so the Cypher shown in the UI is a query that genuinely runs.
+//
+// For most of this build that second claim was false: the driver was installed
+// but nothing executed the Cypher. `runCypher` now does, and the graph route
+// reports whether it actually ran rather than inferring it from an env var.
 // ============================================================================
 
 import { id as mkId, now } from "./ids";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 /* ---------------------------------------------------------------------------
    The learning view.
@@ -41,6 +41,7 @@ export interface LearningData {
     posteriors: Posterior[];
     totalPulls: number;
     totalReward: number;
+    simulatedPulls: number;
     recentDecisions: { context: string; arm: string; sampled: Record<string, number>; at: string }[];
   };
   preference: {
@@ -73,11 +74,30 @@ function betaPdf(x: number, a: number, b: number): number {
   return Math.exp((a - 1) * Math.log(x) + (b - 1) * Math.log(1 - x) - logB);
 }
 
+/**
+ * One colour per arm, not per variant. Keying on the variant alone meant
+ * signal-led|email and signal-led|linkedin drew in the same colour, so two of
+ * the four curves were indistinguishable.
+ *
+ * The four were checked rather than eyeballed: every pair is at least 0.10
+ * apart in relative luminance (the widest gap is 0.38, the narrowest 0.10) and
+ * each clears 5:1 against the panel background. Luminance is the channel that
+ * survives dichromatic vision — the Vienot transform preserves it — so
+ * separating on luminance rather than hue is what makes these legible to a
+ * red-green colourblind viewer.
+ *
+ * Channel is additionally encoded as a line style, because colour alone should
+ * never be the only carrier of a distinction: email solid, LinkedIn dashed.
+ */
 const ARM_COLOR: Record<string, string> = {
-  "signal-led": "var(--color-ember)",
-  "peer-proof": "var(--color-steel-blue)",
+  "signal-led|email": "#ff7a45", // ember   lum 0.356
+  "signal-led|linkedin": "#ffc53d", // molten  lum 0.615
+  "peer-proof|email": "#2dd4bf", // tempered lum 0.514
+  "peer-proof|linkedin": "#3b82f6", // blue    lum 0.235
 };
-const armColor = (arm: string) => ARM_COLOR[arm.split("|")[0]] ?? "var(--color-bridge)";
+const armColor = (arm: string) => ARM_COLOR[arm] ?? "var(--color-bridge)";
+/** Redundant encoding of channel, so the four curves differ in shape too. */
+const armDash = (arm: string) => (arm.endsWith("|linkedin") ? "5 3" : undefined);
 
 function PosteriorChart({ posteriors }: { posteriors: Posterior[] }) {
   const w = 300;
@@ -122,8 +142,8 @@ function PosteriorChart({ posteriors }: { posteriors: Posterior[] }) {
       ))}
       {curves.map(({ p, path }) => (
         <g key={`${p.context}-${p.arm}`}>
-          <path d={path} fill="none" stroke={armColor(p.arm)} strokeWidth={1.6} opacity={0.95} />
-          <path d={`${path} L ${w} ${h} L 0 ${h} Z`} fill={armColor(p.arm)} opacity={0.1} />
+          <path d={path} fill="none" stroke={armColor(p.arm)} strokeWidth={1.7} strokeDasharray={armDash(p.arm)} opacity={0.95} />
+          <path d={`${path} L ${w} ${h} L 0 ${h} Z`} fill={armColor(p.arm)} opacity={0.08} />
           <line
             x1={p.mean * w}
             y1={6}
@@ -140,6 +160,20 @@ function PosteriorChart({ posteriors }: { posteriors: Posterior[] }) {
 }
 
 export function Learning({ data, onRefresh }: { data: LearningData | null; onRefresh: () => void }) {
+  const [simulating, setSimulating] = useState(false);
+  const onSimulate = async () => {
+    setSimulating(true);
+    try {
+      await fetch("/api/learning", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rounds: 240 }),
+      });
+      onRefresh();
+    } finally {
+      setSimulating(false);
+    }
+  };
   // Hooks run unconditionally — an early return above a useMemo is a hooks
   // violation that only shows up once the component re-renders with data.
   const byContext = useMemo(() => {
@@ -196,6 +230,21 @@ export function Learning({ data, onRefresh }: { data: LearningData | null; onRef
             <span className="mono grid-surface ml-auto" style={{ fontSize: "0.6875rem", color: "var(--color-ink-faint)" }}>
               {policy.totalPulls} pulls · {policy.totalReward} cumulative reward
             </span>
+            <button
+              type="button"
+              onClick={onSimulate}
+              disabled={simulating}
+              className="rule-label px-2 py-1 rounded"
+              style={{
+                border: "1px solid var(--color-rule)",
+                background: "transparent",
+                color: "var(--color-ink-soft)",
+                cursor: simulating ? "wait" : "pointer",
+              }}
+              title="Replays 240 synthetic outcomes through the live update rule so the curves narrow. Simulated, and labelled as such."
+            >
+              {simulating ? "converging…" : "▸ run 240 rounds"}
+            </button>
           </div>
           <p className="mono mt-0.5" style={{ fontSize: "0.6875rem", color: "var(--color-ink-soft)" }}>
             {policy.algorithm}
@@ -206,6 +255,21 @@ export function Learning({ data, onRefresh }: { data: LearningData | null; onRef
             exploits. Exploration comes from sampling the posterior — there is no tuned
             exploration rate to get wrong.
           </p>
+          {policy.simulatedPulls > 0 && (
+            <p
+              className="mt-1.5 px-2 py-1 rounded"
+              style={{
+                fontSize: "0.75rem",
+                background: "var(--color-alarm-soft)",
+                color: "var(--color-alarm)",
+                maxWidth: "52rem",
+              }}
+            >
+              <strong>{policy.simulatedPulls} of {policy.totalPulls} observations are simulated.</strong>{" "}
+              They were drawn from fixed latent rates and replayed through the real update rule, so what
+              you are watching is the policy converging — not engagement anyone measured. Reset to clear them.
+            </p>
+          )}
         </header>
 
         {byContext.length ? (
@@ -235,7 +299,12 @@ export function Learning({ data, onRefresh }: { data: LearningData | null; onRef
                         <td className="py-1">
                           <span
                             className="inline-block rounded-full mr-1.5"
-                            style={{ width: 6, height: 6, background: armColor(a.arm) }}
+                            style={{
+                              width: 14,
+                              height: 0,
+                              borderTop: `2px ${a.arm.endsWith("|linkedin") ? "dashed" : "solid"} ${armColor(a.arm)}`,
+                              background: "transparent",
+                            }}
                           />
                           <span className="mono">{a.arm.replace("|", " · ")}</span>
                         </td>

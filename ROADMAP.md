@@ -211,7 +211,11 @@ the HITL gate, the Flexprice credit gate firing, Snyk, or the video.
 ---
 
 ## Decisions log
-- **2026-10-30** Product name **SignalForge** — graph-native GTM. Changeable on request.
+- **2026-10-30** Product name **SignalForge** — auditable GTM. Changeable on request.
+- **2026-10-30** Dropped "graph-native" as a positioning claim. Verified that ZoomInfo's
+  GTM Context Graph, Boomerang, The Swarm and Warmly all ship relationship or context
+  graphs, so it differentiates nothing. The defensible claims are citation-as-schema,
+  method-capped confidence, a structural dispatch gate, and approval-as-reward-signal.
 - **2026-10-30** One datastore. Leads, stages, messages and meter events all live as
   graph nodes, so the graph is load-bearing rather than decorative.
 - **2026-10-30** Band agents run as a local worker process, not on Vercel — their SDK

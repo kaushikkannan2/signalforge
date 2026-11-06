@@ -2,8 +2,10 @@
 // Multi-hop graph reasoning.
 //
 // Each query is stated twice on purpose:
-//   `cypher`  — the real Cypher, run against Neo4j when it is configured and
-//               displayed verbatim in the Agent Thinking panel either way.
+//   `cypher`  — the real Cypher. Executed against Neo4j when configured (see
+//               lib/providers/neo4j.ts `runCypher`), and displayed verbatim in
+//               the Agent Thinking panel either way. The response reports
+//               whether it actually ran, so "the Cypher is real" is checkable.
 //   resolver  — the in-process traversal that is always available.
 // These are kept adjacent so they cannot drift into telling different stories.
 // ============================================================================

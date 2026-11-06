@@ -146,7 +146,7 @@ need per-site robots handling we chose not to fake.
 
 | # | Requirement | Status |
 |---|---|---|
-| 3.1 | Native graph store, explicit node labels | ⚠️ in-process is source of truth; Neo4j is a write-through mirror |
+| 3.1 | Native graph store, explicit node labels | ⚠️ in-process is source of truth; Neo4j write-through + Cypher execution implemented but **unverified against a live instance** |
 | 3.2 | Nodes: Company, Person, Product, Competitor, Signal | ✅ |
 | 3.3 | Edges: works_at, competes_with, matched_to, contacted_via, replied_to, previously_employed_at | ✅ all six, plus three more |
 | 3.4 | Warm introduction paths via shared employment or education | ✅ |
@@ -183,6 +183,18 @@ the ringed node is on our side of the graph.
 **Expected:** ~1,007 accounts / 2,376 buyers / **6,802 nodes / 9,424 edges**,
 loading in ~420ms, with all three queries still returning in **2–9ms**. Warm-intro
 reports `examined` and `truncated` so a bounded result is visibly bounded.
+
+### ⚠️ Status: 3.1 the native graph store
+`lib/providers/neo4j.ts` implements uniqueness constraints, batched
+`UNWIND`/`MERGE` write-through, and real execution of the three reasoning
+queries. `/api/graph` reports `neo4j.mirror` and a per-query `ran` flag.
+
+**It has never run against a live database** — no instance is attached. To
+verify it yourself: create a free Neo4j Aura instance, set `NEO4J_URI`,
+`NEO4J_USERNAME` and `NEO4J_PASSWORD`, then
+`curl -s -X POST localhost:3000/api/graph -d '{}' -H 'Content-Type: application/json' | jq .neo4j`
+— `mirror.mirrored` and every `cypherExecuted[].ran` should be `true`, and the
+row counts should match the in-process findings.
 
 ### ❌ Gap: 3.7 continuous signal ingestion
 **Not built.** The brief asks for periodic re-ingestion keeping the graph

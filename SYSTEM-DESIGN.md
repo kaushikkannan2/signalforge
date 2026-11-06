@@ -64,9 +64,18 @@ Two reasons, both deliberate:
    walkthrough.
 2. **Honest Cypher.** Each reasoning query is written twice — real Cypher and
    an in-process traversal — and the two live adjacent in `lib/reasoning.ts`.
-   The Cypher rendered in the UI is the query that would run, not a decorative
-   string pasted next to unrelated logic. Keeping them in the same file is the
-   mechanism that stops them drifting apart.
+   Keeping them in the same file is the mechanism that stops them drifting apart.
+
+   `lib/providers/neo4j.ts` executes that Cypher for real: `syncGraph()` mirrors
+   the graph with batched `UNWIND`/`MERGE` under per-label uniqueness
+   constraints, and `runCypher()` runs each query against the database.
+   `/api/graph` returns `neo4j.cypherExecuted` with a per-query `ran` flag, so
+   "the Cypher is real" is a checkable claim rather than a caption.
+
+   **Status: written, not verified.** No managed instance is attached to this
+   build, so the mirror and the execution path have not been exercised against a
+   live database. An earlier version of this document said the Cypher ran
+   against Neo4j while nothing existed to run it.
 
 ---
 

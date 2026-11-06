@@ -152,6 +152,11 @@ export interface Company {
 export type EnrichmentMethod =
   | "hunter_verified"
   | "mx_validated_pattern"
+  // Pattern learned from an address already resolved at this same domain, then
+  // applied to a second person there. Materially stronger than a blind guess —
+  // the shape is observed rather than assumed — but it is still an inference
+  // about one mailbox, so it sits below an MX-validated result.
+  | "pattern_corroborated"
   | "pattern_inferred"
   | "manual";
 
@@ -159,11 +164,31 @@ export interface ContactEnrichment {
   email?: string;
   emailConfidence: number;
   emailMethod?: EnrichmentMethod;
-  /** Result of a real DNS MX lookup against the company domain. */
+  /** Result of an MX lookup against the company domain. */
   mxValid?: boolean;
   mxRecords?: string[];
+  /**
+   * Where the MX answer came from. "dns" is a live resolveMx call. "fixture" is
+   * a synthetic record attached to a synthetic company, because reserved TLDs
+   * (.example/.invalid/.test) are guaranteed by RFC 2606 never to resolve. The
+   * UI must render the distinction — a fixture presented as a live lookup would
+   * be the exact kind of unearned confidence this tier system exists to prevent.
+   */
+  mxSource?: "dns" | "fixture";
+  /** For pattern_corroborated: the domain-mate whose address established the shape. */
+  patternLearnedFrom?: string;
   deliverability?: "deliverable" | "risky" | "undeliverable" | "unknown";
   linkedinUrl?: string;
+  /**
+   * How much the profile URL can be trusted. A search hit on linkedin.com is
+   * not the same as the right person's profile — the brief asks for *validated*
+   * URLs, so we check the /in/ slug against the name before claiming one.
+   *   name_matched  slug contains both first and last name
+   *   partial_match slug contains one of them
+   *   unverified    a linkedin.com/in/ URL with no name agreement
+   *   fixture       synthetic person at a synthetic company; not a real profile
+   */
+  linkedinMethod?: "name_matched" | "partial_match" | "unverified" | "fixture";
   enrichedAt?: string;
   /** Which vendor answered, for cost attribution. */
   vendor?: string;

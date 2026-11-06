@@ -917,6 +917,7 @@ function BuyerGrid({
               <th className="text-left font-semibold px-2 py-2">Email</th>
               <th className="text-left font-semibold px-2 py-2 w-44">Method</th>
               <th className="text-center font-semibold px-2 py-2 w-16">MX</th>
+              <th className="text-left font-semibold px-2 py-2 w-36">LinkedIn</th>
               <th className="text-left font-semibold px-3 py-2 w-32">Sources</th>
             </tr>
           </thead>
@@ -951,8 +952,17 @@ function BuyerGrid({
                           className="rule-label px-1.5 py-0.5 rounded"
                           style={{
                             background:
-                              e.emailMethod === "hunter_verified" ? "var(--color-vine-soft)" : "var(--color-signal-soft)",
-                            color: e.emailMethod === "hunter_verified" ? "var(--color-vine)" : "var(--color-signal)",
+                              e.emailMethod === "hunter_verified"
+                                ? "var(--color-vine-soft)"
+                                : e.emailMethod === "pattern_inferred"
+                                  ? "var(--color-alarm-soft)"
+                                  : "var(--color-signal-soft)",
+                            color:
+                              e.emailMethod === "hunter_verified"
+                                ? "var(--color-vine)"
+                                : e.emailMethod === "pattern_inferred"
+                                  ? "var(--color-alarm)"
+                                  : "var(--color-signal)",
                           }}
                         >
                           {e.emailMethod.replace(/_/g, " ")}
@@ -965,11 +975,77 @@ function BuyerGrid({
                       </span>
                     )}
                   </td>
-                  <td className="px-2 py-2 align-top mono text-center" title={e.mxRecords?.join(", ")}>
+                  <td
+                    className="px-2 py-2 align-top mono text-center"
+                    title={`${e.mxSource === "fixture" ? "Synthetic record on a reserved-TLD demo domain" : "Live dns.resolveMx"} · ${e.mxRecords?.join(", ") || "no records"}`}
+                  >
                     {e.mxValid ? (
                       <span style={{ color: "var(--color-tier-a)" }}>✓</span>
                     ) : (
                       <span style={{ color: "var(--color-alarm)" }}>✕</span>
+                    )}
+                    {e.mxSource === "fixture" && (
+                      <span className="rule-label" style={{ marginLeft: ".3rem", color: "var(--color-ink-faint)" }}>
+                        fix
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-2 py-2 align-top">
+                    {e.linkedinUrl ? (
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className="rule-label px-1.5 py-0.5 rounded"
+                          title={
+                            e.linkedinMethod === "name_matched"
+                              ? "Profile slug contains both first and last name"
+                              : e.linkedinMethod === "partial_match"
+                                ? "Profile slug matches one name only — treat as a lead, not a confirmation"
+                                : e.linkedinMethod === "fixture"
+                                  ? "Synthetic person at a synthetic company. Not a real profile, so not linked."
+                                  : "A linkedin.com/in/ result with no name agreement"
+                          }
+                          style={{
+                            background:
+                              e.linkedinMethod === "name_matched"
+                                ? "var(--color-vine-soft)"
+                                : e.linkedinMethod === "fixture"
+                                  ? "var(--color-signal-soft)"
+                                  : "var(--color-alarm-soft)",
+                            color:
+                              e.linkedinMethod === "name_matched"
+                                ? "var(--color-vine)"
+                                : e.linkedinMethod === "fixture"
+                                  ? "var(--color-signal)"
+                                  : "var(--color-alarm)",
+                          }}
+                        >
+                          {e.linkedinMethod === "name_matched"
+                            ? "matched"
+                            : e.linkedinMethod === "partial_match"
+                              ? "partial"
+                              : e.linkedinMethod === "fixture"
+                                ? "fixture"
+                                : "unverified"}
+                        </span>
+                        {e.linkedinMethod === "fixture" ? (
+                          <span className="mono truncate" style={{ fontSize: "0.6875rem", color: "var(--color-ink-faint)", maxWidth: "8rem" }}>
+                            {e.linkedinUrl}
+                          </span>
+                        ) : (
+                          <a
+                            href={e.linkedinUrl}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            onClick={(ev) => ev.stopPropagation()}
+                            className="mono truncate"
+                            style={{ fontSize: "0.6875rem", maxWidth: "8rem" }}
+                          >
+                            profile ↗
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="mono" style={{ color: "var(--color-ink-faint)" }}>—</span>
                     )}
                   </td>
                   <td className="px-3 py-2 align-top">

@@ -330,7 +330,7 @@ export const SCENARIO_ACCOUNTS: ScenarioAccount[] = [
         previousEmployers: [],
         education: ["University of Texas at Austin"],
         demonstrates:
-          "Enrichment FAILS honestly — no MX, so no address is claimed, and the row says 'unresolved' rather than showing a pattern guess.",
+          "Enrichment FAILS honestly — no MX, so no address is claimed, and the row shows a 25% pattern guess flagged red and marked undeliverable, rather than a confident address.",
       },
     ],
   },

@@ -79,9 +79,10 @@ Format: **`[timecode]`** → *screen action* → **narration in bold**
 
 *Screen: the landing page. Just the mark, the headline, and one empty field.*
 
-> **"Every AI GTM tool hands you a confident score. SignalForge shows you the
-> sentence and the URL it came from — and refuses to send anything a human
-> hasn't approved. One input."**
+> **"Building a pipeline for a new product takes a week of spreadsheets and
+> four enrichment vendors — and nobody can tell which rows are true.
+> SignalForge runs that loop from one paragraph, and every claim carries the
+> sentence and the URL it came from. One input."**
 
 *→ paste the paragraph, click **Forge my pipeline***
 
@@ -226,8 +227,9 @@ Format: **`[timecode]`** → *screen action* → **narration in bold**
 *→ scroll to the honesty table in the Learning view*
 
 > **"Three of those five components don't learn, and I'd rather tell you
-> which. Usage-priced, graph-native, and every claim auditable. That's
-> SignalForge."**
+> which. The leading tools ask the model to cite its sources — Clay's own guide
+> tells you to put it in the prompt. Here it's in the schema, so an uncited row
+> doesn't exist. And nothing sends without a human. That's SignalForge."**
 
 ---
 

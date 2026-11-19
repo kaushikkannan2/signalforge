@@ -377,27 +377,60 @@ function WarmIntros({
   personId: string;
   onShowPath?: (nodeIds: string[]) => void;
 }) {
-  const [result, setResult] = useState<{ personId: string; findings: WarmFinding[] } | null>(null);
+  // A failed lookup is kept apart from an empty one: "nobody can introduce
+  // you" is advice to go cold, and must only be shown when the graph said so.
+  const [result, setResult] = useState<
+    | { personId: string; attempt: number; findings: WarmFinding[] }
+    | { personId: string; attempt: number; error: string }
+    | null
+  >(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let live = true;
     fetch(`/api/graph?warmFor=${encodeURIComponent(personId)}`)
-      .then((r) => (r.ok ? r.json() : { findings: [] }))
-      .catch(() => ({ findings: [] }))
-      .then((d) => {
-        if (live) setResult({ personId, findings: d.findings ?? [] });
-      });
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`The graph lookup failed (HTTP ${r.status}).`);
+        const d = await r.json();
+        if (!Array.isArray(d.findings)) throw new Error("The graph lookup returned an unexpected response.");
+        return d.findings as WarmFinding[];
+      })
+      .then(
+        (findings) => live && setResult({ personId, attempt, findings }),
+        (err) =>
+          live &&
+          setResult({
+            personId,
+            attempt,
+            error: err instanceof Error ? err.message : "The graph lookup failed.",
+          }),
+      );
     return () => {
       live = false;
     };
-  }, [personId]);
+  }, [personId, attempt]);
 
-  // Ignore a result that belongs to the previously opened record.
-  const findings = result?.personId === personId ? result.findings : null;
+  // Ignore a result from a previously opened record or an earlier attempt.
+  const current = result?.personId === personId && result.attempt === attempt ? result : null;
+  const error = current && "error" in current ? current.error : null;
+  const findings = current && "findings" in current ? current.findings : null;
 
   return (
     <Section title={`Warm introductions${findings ? ` (${findings.length})` : ""}`}>
-      {findings === null ? (
+      {error ? (
+        <div className="flex items-center gap-2 flex-wrap" role="alert">
+          <p style={{ fontSize: "0.75rem", color: "var(--color-alarm)" }}>
+            {error} Warm paths are unknown, not absent.
+          </p>
+          <button
+            onClick={() => setAttempt((n) => n + 1)}
+            className="mono px-1.5 py-0.5 rounded border"
+            style={{ borderColor: "var(--color-rule-strong)", fontSize: "0.6875rem" }}
+          >
+            retry
+          </button>
+        </div>
+      ) : findings === null ? (
         <p style={{ fontSize: "0.75rem", color: "var(--color-ink-faint)" }}>Searching the graph…</p>
       ) : findings.length === 0 ? (
         <p style={{ fontSize: "0.75rem", color: "var(--color-ink-faint)" }}>

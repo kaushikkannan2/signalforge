@@ -304,6 +304,9 @@ export function Analytics({ data }: { data: AnalyticsData }) {
   );
 }
 
+/** The one reasoning query whose finding paths are walks, edge to edge. */
+const WALKABLE_QUERY = "warm_intro_paths";
+
 export function GraphInsights({
   results,
   onShowPath,
@@ -370,7 +373,10 @@ export function GraphInsights({
                     <p style={{ fontSize: "0.8125rem", fontWeight: 600 }}>{f.headline}</p>
                     <p style={{ fontSize: "0.75rem", color: "var(--color-ink-soft)" }}>{f.explanation}</p>
                     <p style={{ fontSize: "0.75rem", color: "var(--color-vine)" }}>→ {f.actionable}</p>
-                    {onShowPath && (f.path?.nodes.length ?? 0) > 1 && (
+                    {/* Only warm-intro paths are a connected walk. Other queries list
+                        an account, its signals and a buyer, which the constellation's
+                        consecutive-pair highlighting would draw as a broken route. */}
+                    {onShowPath && r.queryName === WALKABLE_QUERY && (f.path?.nodes.length ?? 0) > 1 && (
                       <button
                         onClick={() => onShowPath(f.path!.nodes.map((n) => n.id))}
                         className="mono mt-1 px-1.5 py-0.5 rounded border"

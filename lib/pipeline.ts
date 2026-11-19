@@ -12,6 +12,7 @@ import { graph } from "./graph";
 import { emit } from "./thinking";
 import { id as mkId, now } from "./ids";
 import { LEAD_STAGES, type Actor, type Lead, type LeadStage, type StageTransition } from "./types";
+import { HALTING_STAGES } from "./cadence";
 import { recordReward } from "./rl";
 
 export function ensureLead(personId: string, icpId: string): Lead {
@@ -101,6 +102,19 @@ export function advanceLead(
       .sort((a, b) => b.touch - a.touch)[0];
     if (sent) {
       recordReward(sent, findPerson(personId), to === "replied" ? "reply" : "meeting", opts.runId);
+    }
+  }
+
+  // Stop on reply. dispatch() derives the halt from the lead's stage, so this
+  // only tells the operator how many approved or pending touches are now held.
+  if (opts.runId && HALTING_STAGES.includes(to) && !HALTING_STAGES.includes(from)) {
+    const held = db.messages.filter(
+      (m) => m.personId === personId && m.status !== "sent" && m.status !== "rejected",
+    );
+    if (held.length) {
+      emit(opts.runId, "Cadence", "gate", `Sequence stopped for ${findPerson(personId)?.fullName ?? personId}`, {
+        detail: `${held.length} unsent touch${held.length === 1 ? " is" : "es are"} held because the lead moved to ${to.replace(/_/g, " ")}. Moving the lead back reopens them.`,
+      });
     }
   }
 

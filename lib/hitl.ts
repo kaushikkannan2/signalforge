@@ -17,7 +17,7 @@ import { graph } from "./graph";
 import { emit } from "./thinking";
 import { meter } from "./meter";
 import { id as mkId, now } from "./ids";
-import type { ApprovalRecord, DispatchRecord, LeadStage, OutreachMessage } from "./types";
+import { REJECTION_CATEGORIES, type ApprovalRecord, type DispatchRecord, type OutreachMessage, type RejectionCategory } from "./types";
 import { advanceLead } from "./pipeline";
 import { recordReward } from "./rl";
 import { assertSafeRecipient, DispatchSafetyError } from "./privacy";
@@ -43,6 +43,7 @@ export function decide(
     editedBody?: string;
     editedSubject?: string;
     rejectionReason?: string;
+    rejectionCategory?: RejectionCategory;
   },
   runId: string,
 ): ApprovalRecord {
@@ -63,19 +64,29 @@ export function decide(
     editedBody: input.editedBody,
     editedSubject: input.editedSubject,
     rejectionReason: input.rejectionReason,
+    rejectionCategory: input.decision === "rejected" ? input.rejectionCategory : undefined,
     decidedAt: now(),
   };
   db.approvals.push(record);
 
+  let changed = false;
   if (input.decision === "rejected") {
     message.status = "rejected";
   } else {
     message.status = "approved";
-    if (input.editedBody) {
+    // Keep the drafter's copy the first time a human replaces it, so the
+    // queue can show what changed and the audit trail keeps both versions.
+    if (input.editedBody && input.editedBody !== message.body) {
+      changed = true;
+      message.originalBody ??= message.body;
       message.body = input.editedBody;
       message.wordCount = input.editedBody.trim().split(/\s+/).length;
     }
-    if (input.editedSubject) message.subject = input.editedSubject;
+    if (input.editedSubject && input.editedSubject !== message.subject) {
+      changed = true;
+      message.originalSubject ??= message.subject ?? "";
+      message.subject = input.editedSubject;
+    }
   }
 
   const person = findPerson(message.personId);
@@ -93,8 +104,8 @@ export function decide(
     {
       detail:
         input.decision === "rejected"
-          ? `Reason: ${input.rejectionReason ?? "not given"}. This message can never be dispatched.`
-          : `Approved by ${input.decidedBy}${input.editedBody ? " after editing the copy" : ""}. Dispatch is now permitted for this message only.`,
+          ? `Reason: ${input.rejectionCategory ? `${REJECTION_CATEGORIES[input.rejectionCategory]}. ` : ""}${input.rejectionReason ?? "no note"}. This message can never be dispatched.`
+          : `Approved by ${input.decidedBy}${changed ? " after editing the copy" : ""}. Dispatch is now permitted for this message only.`,
     },
   );
 

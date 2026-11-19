@@ -34,7 +34,7 @@
 import { db } from "./db";
 import { emit } from "./thinking";
 import { id as mkId, now } from "./ids";
-import type { Channel, OutreachMessage, Person } from "./types";
+import type { Channel, OutreachMessage, Person, RejectionCategory } from "./types";
 
 /* --- arms and context ----------------------------------------------------- */
 
@@ -376,6 +376,9 @@ export interface PreferencePair {
   /** What the model originally produced. */
   rejected: string;
   source: "human_edit" | "rejection";
+  /** Why the human rejected it, when they picked a category. */
+  rejectionCategory?: RejectionCategory;
+  rejectionReason?: string;
   messageId: string;
   at: string;
 }
@@ -412,7 +415,7 @@ export function preferencePairs(): PreferencePair[] {
       }
     }
 
-    if (approval.decision === "rejected" && approval.rejectionReason) {
+    if (approval.decision === "rejected" && (approval.rejectionReason || approval.rejectionCategory)) {
       // A rejection without a replacement is a negative-only example. Recorded
       // separately because DPO needs a chosen completion, and inventing one
       // would be fabricating the human's preference.
@@ -422,6 +425,8 @@ export function preferencePairs(): PreferencePair[] {
         chosen: "",
         rejected: message.body,
         source: "rejection",
+        rejectionCategory: approval.rejectionCategory,
+        rejectionReason: approval.rejectionReason,
         messageId: message.id,
         at: approval.decidedAt,
       });
@@ -474,6 +479,8 @@ export interface LearningReport {
     pairs: number;
     usableForDpo: number;
     negativeOnly: number;
+    /** Rejections grouped by the category the human picked. */
+    rejectionsByCategory: Partial<Record<RejectionCategory, number>>;
     sample: PreferencePair | null;
   };
   /** The honesty table. Rendered verbatim in the UI. */
@@ -530,6 +537,12 @@ export function learningReport(): LearningReport {
       pairs: pairs.length,
       usableForDpo: pairs.filter((p) => p.source === "human_edit").length,
       negativeOnly: pairs.filter((p) => p.source === "rejection").length,
+      rejectionsByCategory: pairs.reduce<Partial<Record<RejectionCategory, number>>>((acc, p) => {
+        if (p.source === "rejection" && p.rejectionCategory) {
+          acc[p.rejectionCategory] = (acc[p.rejectionCategory] ?? 0) + 1;
+        }
+        return acc;
+      }, {}),
       sample: pairs.find((p) => p.source === "human_edit") ?? pairs[0] ?? null,
     },
     components: [

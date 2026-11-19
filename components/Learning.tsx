@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { REJECTION_CATEGORIES, type RejectionCategory } from "@/lib/types";
 
 /* ---------------------------------------------------------------------------
    The learning view.
@@ -49,6 +50,7 @@ export interface LearningData {
     pairs: number;
     usableForDpo: number;
     negativeOnly: number;
+    rejectionsByCategory?: Partial<Record<RejectionCategory, number>>;
     sample: { prompt: string; chosen: string; rejected: string; source: string } | null;
   };
   components: { component: string; learns: boolean; method: string; note: string }[];
@@ -385,6 +387,7 @@ export function Learning({ data, onRefresh }: { data: LearningData | null; onRef
             That is exactly the shape DPO consumes. We collect and export it —{" "}
             <strong>we have not fine-tuned on it</strong>, and a dataset is not a trained policy.
           </p>
+          <RejectionBreakdown counts={preference.rejectionsByCategory} />
         </header>
 
         {preference.sample ? (
@@ -479,6 +482,28 @@ export function Learning({ data, onRefresh }: { data: LearningData | null; onRef
           </table>
         </div>
       </section>
+    </div>
+  );
+}
+
+/** Why humans rejected drafts, by the category they picked at the gate. */
+function RejectionBreakdown({ counts }: { counts?: Partial<Record<RejectionCategory, number>> }) {
+  const rows = Object.entries(counts ?? {})
+    .filter((e): e is [RejectionCategory, number] => (e[1] ?? 0) > 0)
+    .sort((a, b) => b[1] - a[1]);
+  if (!rows.length) return null;
+  return (
+    <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+      <span className="rule-label">rejected for</span>
+      {rows.map(([category, n]) => (
+        <span
+          key={category}
+          className="mono px-1.5 py-0.5 rounded"
+          style={{ background: "var(--color-alarm-soft)", color: "var(--color-alarm)", fontSize: "0.6875rem" }}
+        >
+          {REJECTION_CATEGORIES[category]} · {n}
+        </span>
+      ))}
     </div>
   );
 }

@@ -1,7 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import type { ApprovalRecord, DispatchRecord, OutreachMessage, Person } from "@/lib/types";
+import { editRatio, wordDiff } from "@/lib/diff";
+import {
+  REJECTION_CATEGORIES,
+  type ApprovalRecord,
+  type DispatchRecord,
+  type OutreachMessage,
+  type Person,
+  type RejectionCategory,
+} from "@/lib/types";
+
+export interface DecisionPayload {
+  editedBody?: string;
+  editedSubject?: string;
+  rejectionReason?: string;
+  rejectionCategory?: RejectionCategory;
+}
 
 /**
  * The approval gate as a working surface. Three things are deliberately
@@ -26,15 +41,30 @@ export function HitlQueue({
   onDecide: (
     messageId: string,
     action: "approve" | "edit_and_approve" | "reject",
-    payload?: { editedBody?: string; rejectionReason?: string },
+    payload?: DecisionPayload,
   ) => void;
   onDispatch: (messageId: string) => void;
   busy: boolean;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [draftSubject, setDraftSubject] = useState("");
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  const [category, setCategory] = useState<RejectionCategory | null>(null);
+  const [showChanges, setShowChanges] = useState<Set<string>>(new Set());
+  const toggleChanges = (id: string) =>
+    setShowChanges((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const closeReject = () => {
+    setRejecting(null);
+    setReason("");
+    setCategory(null);
+  };
 
   if (!messages.length) return null;
   const nameOf = (id: string) => people.find((p) => p.id === id);
@@ -106,6 +136,9 @@ export function HitlQueue({
                     const approval = approvalOf(m.id);
                     const sent = dispatchOf(m.id);
                     const isEditing = editing === m.id;
+                    const wasEdited = m.originalBody !== undefined || m.originalSubject !== undefined;
+                    const bodyChanged = isEditing && draft !== m.body;
+                    const subjectChanged = isEditing && m.subject !== undefined && draftSubject !== m.subject;
                     return (
                       <article
                         key={m.id}
@@ -144,6 +177,17 @@ export function HitlQueue({
                               generic
                             </span>
                           )}
+                          {wasEdited && (
+                            <button
+                              onClick={() => toggleChanges(m.id)}
+                              className="rule-label px-1.5 py-0.5 rounded"
+                              title="Compare the drafter's copy with what was approved"
+                              style={{ background: "var(--color-signal-soft)", color: "var(--color-signal)" }}
+                            >
+                              edited · {Math.round(editRatio(m.originalBody ?? m.body, m.body) * 100)}% rewritten{" "}
+                              {showChanges.has(m.id) ? "▴" : "▾"}
+                            </button>
+                          )}
                           {m.review && (
                             <span
                               className="rule-label px-1.5 py-0.5 rounded"
@@ -177,17 +221,45 @@ export function HitlQueue({
                           </span>
                         </div>
 
-                        {m.subject && (
-                          <p style={{ fontSize: "0.875rem", fontWeight: 600 }}>{m.subject}</p>
+                        {isEditing && m.subject !== undefined ? (
+                          <input
+                            value={draftSubject}
+                            onChange={(e) => setDraftSubject(e.target.value)}
+                            aria-label="Subject"
+                            className="w-full px-2 py-1 rounded border"
+                            style={{ borderColor: "var(--color-rule-strong)", fontSize: "0.875rem", fontWeight: 600 }}
+                          />
+                        ) : (
+                          m.subject && <p style={{ fontSize: "0.875rem", fontWeight: 600 }}>{m.subject}</p>
                         )}
 
                         {isEditing ? (
-                          <textarea
-                            value={draft}
-                            onChange={(e) => setDraft(e.target.value)}
-                            rows={7}
-                            className="w-full mt-1 px-2 py-1.5 rounded border"
-                            style={{ borderColor: "var(--color-rule-strong)", fontSize: "0.8125rem" }}
+                          <>
+                            <textarea
+                              value={draft}
+                              onChange={(e) => setDraft(e.target.value)}
+                              aria-label="Message body"
+                              rows={7}
+                              className="w-full mt-1 px-2 py-1.5 rounded border"
+                              style={{ borderColor: "var(--color-rule-strong)", fontSize: "0.8125rem" }}
+                            />
+                            {(bodyChanged || subjectChanged) && (
+                              <ChangeView
+                                label="Your changes"
+                                beforeSubject={subjectChanged ? m.subject : undefined}
+                                afterSubject={subjectChanged ? draftSubject : undefined}
+                                before={m.body}
+                                after={draft}
+                              />
+                            )}
+                          </>
+                        ) : wasEdited && showChanges.has(m.id) ? (
+                          <ChangeView
+                            label="Drafted → approved"
+                            beforeSubject={m.originalSubject}
+                            afterSubject={m.originalSubject !== undefined ? m.subject : undefined}
+                            before={m.originalBody ?? m.body}
+                            after={m.body}
                           />
                         ) : (
                           <p
@@ -210,32 +282,66 @@ export function HitlQueue({
                             {approval.decision.replace(/_/g, " ")} by {approval.decidedBy} ·{" "}
                             {new Date(approval.decidedAt).toLocaleTimeString("en-GB", { hour12: false })} ·{" "}
                             {approval.id}
-                            {approval.rejectionReason && ` · reason: ${approval.rejectionReason}`}
+                            {approval.rejectionCategory && ` · ${REJECTION_CATEGORIES[approval.rejectionCategory]}`}
+                            {approval.rejectionReason && ` · ${approval.rejectionReason}`}
                             {sent && ` → ${sent.status} via ${sent.provider} (${sent.id})`}
                           </p>
                         )}
 
                         {rejecting === m.id && (
-                          <div className="mt-2 flex gap-2">
-                            <input
-                              value={reason}
-                              onChange={(e) => setReason(e.target.value)}
-                              placeholder="Why are you rejecting this?"
-                              className="flex-1 px-2 py-1.5 rounded border"
-                              style={{ borderColor: "var(--color-rule-strong)", fontSize: "0.8125rem" }}
-                            />
-                            <button
-                              onClick={() => {
-                                onDecide(m.id, "reject", { rejectionReason: reason || "Not specified" });
-                                setRejecting(null);
-                                setReason("");
-                              }}
-                              className="px-2.5 py-1 rounded-md"
-                              style={{ background: "var(--color-alarm)", color: "#2a0810", fontWeight: 600, fontSize: "0.8125rem" }}
-                            >
-                              Confirm reject
-                            </button>
-                          </div>
+                          <fieldset className="mt-2 flex flex-col gap-2">
+                            <legend className="rule-label mb-1">Why are you rejecting this?</legend>
+                            <div className="flex gap-1.5 flex-wrap">
+                              {(Object.keys(REJECTION_CATEGORIES) as RejectionCategory[]).map((c) => (
+                                <button
+                                  key={c}
+                                  type="button"
+                                  aria-pressed={category === c}
+                                  onClick={() => setCategory(c)}
+                                  className="px-2 py-0.5 rounded border"
+                                  style={{
+                                    fontSize: "0.75rem",
+                                    borderColor: category === c ? "var(--color-alarm)" : "var(--color-rule-strong)",
+                                    background: category === c ? "var(--color-alarm-soft)" : undefined,
+                                    color: category === c ? "var(--color-alarm)" : undefined,
+                                  }}
+                                >
+                                  {REJECTION_CATEGORIES[c]}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="flex gap-2">
+                              <input
+                                value={reason}
+                                onChange={(e) => setReason(e.target.value)}
+                                placeholder={category === "other" ? "Say why (required)" : "Add a note (optional)"}
+                                className="flex-1 px-2 py-1.5 rounded border"
+                                style={{ borderColor: "var(--color-rule-strong)", fontSize: "0.8125rem" }}
+                              />
+                              <button
+                                onClick={() => {
+                                  if (!category) return;
+                                  onDecide(m.id, "reject", {
+                                    rejectionCategory: category,
+                                    rejectionReason: reason.trim() || undefined,
+                                  });
+                                  closeReject();
+                                }}
+                                disabled={busy || !category || (category === "other" && !reason.trim())}
+                                className="px-2.5 py-1 rounded-md disabled:opacity-40"
+                                style={{ background: "var(--color-alarm)", color: "#2a0810", fontWeight: 600, fontSize: "0.8125rem" }}
+                              >
+                                Confirm reject
+                              </button>
+                              <button
+                                onClick={closeReject}
+                                className="px-2.5 py-1 rounded border"
+                                style={{ borderColor: "var(--color-rule-strong)", fontSize: "0.8125rem" }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </fieldset>
                         )}
 
                         {m.status !== "sent" && m.status !== "rejected" && rejecting !== m.id && (
@@ -244,10 +350,19 @@ export function HitlQueue({
                               <>
                                 <button
                                   onClick={() => {
-                                    onDecide(m.id, "edit_and_approve", { editedBody: draft });
+                                    onDecide(m.id, "edit_and_approve", {
+                                      editedBody: bodyChanged ? draft : undefined,
+                                      editedSubject: subjectChanged ? draftSubject : undefined,
+                                    });
                                     setEditing(null);
                                   }}
-                                  disabled={busy}
+                                  disabled={
+                                    busy ||
+                                    (!bodyChanged && !subjectChanged) ||
+                                    !draft.trim() ||
+                                    (subjectChanged && !draftSubject.trim())
+                                  }
+                                  title={!bodyChanged && !subjectChanged ? "Nothing changed yet. Use Approve to approve as drafted." : undefined}
                                   className="btn-primary px-2.5 py-1 rounded-md disabled:opacity-50"
                                   style={{ fontSize: "0.8125rem" }}
                                 >
@@ -277,6 +392,8 @@ export function HitlQueue({
                                   onClick={() => {
                                     setEditing(m.id);
                                     setDraft(m.body);
+                                    setDraftSubject(m.subject ?? "");
+                                    closeReject();
                                   }}
                                   className="px-2.5 py-1 rounded border"
                                   style={{ borderColor: "var(--color-rule-strong)", fontSize: "0.8125rem" }}
@@ -284,7 +401,11 @@ export function HitlQueue({
                                   Edit
                                 </button>
                                 <button
-                                  onClick={() => setRejecting(m.id)}
+                                  onClick={() => {
+                                    setRejecting(m.id);
+                                    setReason("");
+                                    setCategory(null);
+                                  }}
                                   className="px-2.5 py-1 rounded border"
                                   style={{
                                     borderColor: "var(--color-rule-strong)",
@@ -324,5 +445,58 @@ export function HitlQueue({
         })}
       </div>
     </section>
+  );
+}
+
+/** Word-level before/after, so the rep sees exactly what their edit changes. */
+function ChangeView({
+  label,
+  before,
+  after,
+  beforeSubject,
+  afterSubject,
+}: {
+  label: string;
+  before: string;
+  after: string;
+  beforeSubject?: string;
+  afterSubject?: string;
+}) {
+  const showSubject = beforeSubject !== undefined && afterSubject !== undefined && beforeSubject !== afterSubject;
+  return (
+    <div
+      className="mt-1.5 p-2 rounded border"
+      style={{ borderColor: "var(--color-rule)", fontSize: "0.8125rem" }}
+    >
+      <span className="rule-label">{label}</span>
+      {showSubject && (
+        <p className="mt-1" style={{ fontWeight: 600 }}>
+          <Segments before={beforeSubject} after={afterSubject} />
+        </p>
+      )}
+      <p className="mt-1 whitespace-pre-wrap" style={{ color: "var(--color-ink-soft)" }}>
+        <Segments before={before} after={after} />
+      </p>
+    </div>
+  );
+}
+
+function Segments({ before, after }: { before: string; after: string }) {
+  return (
+    <>
+      {wordDiff(before, after).map((s, i) =>
+        s.type === "same" ? (
+          <span key={i}>{s.text}</span>
+        ) : s.type === "add" ? (
+          <ins key={i} style={{ background: "var(--color-vine-soft)", color: "var(--color-vine)", textDecoration: "none" }}>
+            {s.text}
+          </ins>
+        ) : (
+          <del key={i} style={{ background: "var(--color-alarm-soft)", color: "var(--color-alarm)" }}>
+            {s.text}
+          </del>
+        ),
+      )}
+    </>
   );
 }

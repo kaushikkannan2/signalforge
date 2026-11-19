@@ -268,6 +268,9 @@ export interface OutreachMessage {
   /** Persona constraints the generator was held to. */
   toneConstraints: { tone: string; maxWords: number; cta: string };
   wordCount: number;
+  /** The drafter's copy, kept when a human edit replaces body/subject. */
+  originalBody?: string;
+  originalSubject?: string;
   status: "drafted" | "pending_approval" | "approved" | "rejected" | "sent" | "failed";
   /** Reviewer's verdict on factual accuracy and link validity. */
   review?: {
@@ -294,8 +297,24 @@ export interface ApprovalRecord {
   editedBody?: string;
   editedSubject?: string;
   rejectionReason?: string;
+  /** Structured reason, so rejections can be counted and learned from. */
+  rejectionCategory?: RejectionCategory;
   decidedAt: string;
 }
+
+export const REJECTION_CATEGORIES = {
+  inaccurate_claim: "Inaccurate or unsupported claim",
+  wrong_tone: "Wrong tone for this person",
+  too_long: "Too long or unfocused",
+  wrong_person: "Wrong person to contact",
+  bad_timing: "Bad timing",
+  other: "Other",
+} as const;
+
+export type RejectionCategory = keyof typeof REJECTION_CATEGORIES;
+
+export const isRejectionCategory = (v: unknown): v is RejectionCategory =>
+  typeof v === "string" && Object.hasOwn(REJECTION_CATEGORIES, v);
 
 export interface DispatchRecord {
   id: string;

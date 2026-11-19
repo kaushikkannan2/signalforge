@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
     editedBody?: string;
     editedSubject?: string;
     rejectionReason?: string;
+    sendEarly?: boolean;
   };
 
   const runId = mkId("run");
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
         runId,
         redirectTo: process.env.DEMO_INBOX,
         actorName: "Builder agent",
+        sendEarly: body.sendEarly === true,
       });
       return NextResponse.json({ dispatch: record, audit: auditTrail(body.messageId), ...state() });
     }

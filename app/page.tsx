@@ -428,9 +428,9 @@ export default function Workspace() {
     }
   }
 
-  async function hitlDispatch(messageId: string) {
+  async function hitlDispatch(messageId: string, opts?: { sendEarly?: boolean }) {
     try {
-      const d = await post("/api/hitl", { action: "dispatch", messageId });
+      const d = await post("/api/hitl", { action: "dispatch", messageId, sendEarly: opts?.sendEarly });
       setMessages(d.messages);
       setDispatches(d.dispatches);
       setLeads(d.leads ?? leads);
@@ -813,6 +813,7 @@ export default function Workspace() {
                     people={people}
                     approvals={approvals}
                     dispatches={dispatches}
+                    leads={leads}
                     onDecide={hitlDecide}
                     onDispatch={hitlDispatch}
                     busy={Boolean(busy)}

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import type { ApprovalRecord, DispatchRecord, OutreachMessage, Person } from "@/lib/types";
+import { useEffect, useState } from "react";
+import { computeCadence, type CadenceStatus } from "@/lib/cadence";
+import type { ApprovalRecord, DispatchRecord, Lead, OutreachMessage, Person } from "@/lib/types";
 
 /**
  * The approval gate as a working surface. Three things are deliberately
@@ -15,6 +16,7 @@ export function HitlQueue({
   people,
   approvals,
   dispatches,
+  leads = [],
   onDecide,
   onDispatch,
   busy,
@@ -23,24 +25,42 @@ export function HitlQueue({
   people: Person[];
   approvals: ApprovalRecord[];
   dispatches: DispatchRecord[];
+  /** Used to stop a sequence once the lead has replied. */
+  leads?: Lead[];
   onDecide: (
     messageId: string,
     action: "approve" | "edit_and_approve" | "reject",
     payload?: { editedBody?: string; rejectionReason?: string },
   ) => void;
-  onDispatch: (messageId: string) => void;
+  onDispatch: (messageId: string, opts?: { sendEarly?: boolean }) => void;
   busy: boolean;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  // The clock for "due in N days". Ticks each minute so a touch becomes
+  // sendable without a reload.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   if (!messages.length) return null;
   const nameOf = (id: string) => people.find((p) => p.id === id);
   const approvalOf = (id: string) =>
     approvals.filter((a) => a.messageId === id).slice(-1)[0];
   const dispatchOf = (id: string) => dispatches.filter((d) => d.messageId === id).slice(-1)[0];
+  // Same rule the server enforces in dispatch(), computed here so the button
+  // can explain itself. The server still decides.
+  const cadenceOf = (m: OutreachMessage): CadenceStatus =>
+    computeCadence(m, {
+      messages,
+      dispatches,
+      leadStage: leads.find((l) => l.personId === m.personId)?.stage,
+      nowMs,
+    });
 
   const bySequence = new Map<string, OutreachMessage[]>();
   for (const m of messages) {
@@ -106,6 +126,7 @@ export function HitlQueue({
                     const approval = approvalOf(m.id);
                     const sent = dispatchOf(m.id);
                     const isEditing = editing === m.id;
+                    const cadence = cadenceOf(m);
                     return (
                       <article
                         key={m.id}
@@ -127,6 +148,9 @@ export function HitlQueue({
                           <span className="mono" style={{ color: "var(--color-ink-faint)", fontSize: "0.6875rem" }}>
                             {m.wordCount}/{m.toneConstraints.maxWords} words
                           </span>
+                          {cadence.state !== "sent" && cadence.state !== "ready" && m.status !== "rejected" && (
+                            <CadenceBadge cadence={cadence} />
+                          )}
                           {m.signalsUsed.length > 0 ? (
                             <span
                               className="rule-label px-1.5 py-0.5 rounded"
@@ -295,12 +319,24 @@ export function HitlQueue({
                                   Reject
                                 </button>
                                 <button
-                                  onClick={() => onDispatch(m.id)}
-                                  disabled={busy || m.status !== "approved"}
+                                  onClick={() => {
+                                    if (cadence.state !== "waiting") return onDispatch(m.id);
+                                    if (window.confirm(`${cadence.reason}\n\nSend touch ${m.touch} now anyway?`)) {
+                                      onDispatch(m.id, { sendEarly: true });
+                                    }
+                                  }}
+                                  disabled={
+                                    busy ||
+                                    m.status !== "approved" ||
+                                    cadence.state === "halted" ||
+                                    cadence.state === "blocked"
+                                  }
                                   title={
                                     m.status !== "approved"
                                       ? "Blocked: no approval record exists for this message yet."
-                                      : "Send now"
+                                      : cadence.state === "ready"
+                                        ? "Send now"
+                                        : cadence.reason
                                   }
                                   className="px-2.5 py-1 rounded border disabled:opacity-40 ml-auto"
                                   style={{
@@ -309,7 +345,7 @@ export function HitlQueue({
                                     fontSize: "0.8125rem",
                                   }}
                                 >
-                                  Send →
+                                  {cadence.state === "waiting" ? "Send early →" : "Send →"}
                                 </button>
                               </>
                             )}
@@ -324,5 +360,29 @@ export function HitlQueue({
         })}
       </div>
     </section>
+  );
+}
+
+function CadenceBadge({ cadence }: { cadence: CadenceStatus }) {
+  const halted = cadence.state === "halted";
+  const label =
+    cadence.state === "halted"
+      ? "sequence stopped"
+      : cadence.state === "blocked"
+        ? "waiting on earlier touch"
+        : cadence.dueAt
+          ? `due ${new Date(cadence.dueAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
+          : "scheduled";
+  return (
+    <span
+      className="rule-label px-1.5 py-0.5 rounded"
+      title={cadence.reason}
+      style={{
+        background: halted ? "var(--color-alarm-soft)" : "var(--color-rule)",
+        color: halted ? "var(--color-alarm)" : "var(--color-ink-soft)",
+      }}
+    >
+      {label}
+    </span>
   );
 }

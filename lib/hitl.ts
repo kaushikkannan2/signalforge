@@ -20,6 +20,7 @@ import { id as mkId, now } from "./ids";
 import type { ApprovalRecord, DispatchRecord, LeadStage, OutreachMessage } from "./types";
 import { advanceLead } from "./pipeline";
 import { recordReward } from "./rl";
+import { computeCadence } from "./cadence";
 import { assertSafeRecipient, DispatchSafetyError } from "./privacy";
 
 export class GateViolationError extends Error {
@@ -106,6 +107,11 @@ export interface DispatchOptions {
   redirectTo?: string;
   runId: string;
   actorName?: string;
+  /**
+   * The rep chose to send a follow-up before its cadence slot. Overrides
+   * timing only: approval, ordering and stop-on-reply still apply.
+   */
+  sendEarly?: boolean;
 }
 
 /**
@@ -141,6 +147,27 @@ export async function dispatch(
   }
   if (message.status === "sent") {
     throw new GateViolationError("Dispatch refused: already sent.");
+  }
+
+  const cadence = computeCadence(message, {
+    messages: db.messages,
+    dispatches: db.dispatches,
+    leadStage: db.leads.find((l) => l.personId === message.personId)?.stage,
+    nowMs: Date.parse(now()),
+  });
+  if (cadence.state === "halted" || cadence.state === "blocked") {
+    emit(opts.runId, "Cadence", "gate", `Dispatch refused — touch ${message.touch} is ${cadence.state}`, {
+      detail: cadence.reason,
+    });
+    throw new GateViolationError(`Dispatch refused: ${cadence.reason}`);
+  }
+  if (cadence.state === "waiting") {
+    if (!opts.sendEarly) {
+      throw new GateViolationError(`Dispatch refused: ${cadence.reason} Choose "Send early" to override the timing.`);
+    }
+    emit(opts.runId, "Cadence", "gate", `Touch ${message.touch} sent early by the rep`, {
+      detail: `${cadence.reason} Timing overridden; approval ${approval.id} still applies.`,
+    });
   }
 
   const person = findPerson(message.personId);

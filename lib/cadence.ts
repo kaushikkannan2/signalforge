@@ -57,10 +57,11 @@ function deliveredAt(messageId: string, dispatches: DispatchRecord[]): string | 
     .at(-1);
 }
 
-export function gapDays(touch: number): number {
-  const current = CADENCE_DAYS[touch] ?? CADENCE_DAYS[3];
-  const previous = CADENCE_DAYS[touch - 1] ?? 0;
-  return Math.max(0, current - previous);
+const dayOf = (touch: number) => CADENCE_DAYS[touch] ?? CADENCE_DAYS[3];
+
+/** Days between an earlier touch and a later one. */
+export function gapDays(touch: number, previousTouch = touch - 1): number {
+  return Math.max(0, dayOf(touch) - (previousTouch < 1 ? 0 : dayOf(previousTouch)));
 }
 
 export function computeCadence(
@@ -83,16 +84,17 @@ export function computeCadence(
 
   if (message.touch <= 1) return { state: "ready", reason: "First touch." };
 
-  const previous = ctx.messages.find(
-    (m) => m.sequenceId === message.sequenceId && m.touch === message.touch - 1,
-  );
-  // A sequence missing its earlier touch (e.g. trimmed by the drafter) has no
-  // ordering to enforce.
-  if (!previous) return { state: "ready", reason: `No touch ${message.touch - 1} in this sequence.` };
-
-  if (previous.status !== "sent") {
-    return { state: "blocked", reason: `Touch ${previous.touch} has not been sent yet.` };
+  // The drafter can return gapped touch numbers (e.g. 1 and 3), so order
+  // against every earlier touch that exists, and space from the nearest one.
+  const earlier = ctx.messages
+    .filter((m) => m.sequenceId === message.sequenceId && m.touch < message.touch)
+    .sort((a, b) => a.touch - b.touch);
+  const unsent = earlier.find((m) => m.status !== "sent");
+  if (unsent) {
+    return { state: "blocked", reason: `Touch ${unsent.touch} has not been sent yet.` };
   }
+  const previous = earlier.at(-1);
+  if (!previous) return { state: "ready", reason: "First touch in this sequence." };
 
   const sentAt = deliveredAt(previous.id, ctx.dispatches);
   if (!sentAt) {
@@ -101,7 +103,7 @@ export function computeCadence(
     return { state: "ready", reason: `Touch ${previous.touch} is sent; its send time is unknown.` };
   }
 
-  const gap = gapDays(message.touch);
+  const gap = gapDays(message.touch, previous.touch);
   const dueMs = Date.parse(sentAt) + gap * DAY_MS;
   const dueAt = new Date(dueMs).toISOString();
   if (ctx.nowMs < dueMs) {

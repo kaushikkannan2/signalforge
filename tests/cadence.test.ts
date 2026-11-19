@@ -92,3 +92,22 @@ test("moving the lead back to contacted reopens the sequence", () => {
   const c = computeCadence(messages[1], { messages, dispatches, leadStage: "contacted", nowMs: T0 + 4 * DAY });
   assert.equal(c.state, "ready");
 });
+
+test("a gapped sequence (touches 1 and 3) still orders and spaces touch 3 after touch 1", () => {
+  const one = msg(1, "approved");
+  const three = msg(3);
+  const blocked = computeCadence(three, { messages: [one, three], dispatches: [], nowMs: T0 });
+  assert.equal(blocked.state, "blocked");
+
+  const sentOne = msg(1, "sent");
+  const waiting = computeCadence(three, { messages: [sentOne, three], dispatches: [sent("msg_1", T0)], nowMs: T0 + 3 * DAY });
+  assert.equal(waiting.state, "waiting");
+  assert.equal(waiting.dueAt, new Date(T0 + 7 * DAY).toISOString(), "spaced by day 7 - day 0");
+});
+
+test("every earlier touch must be sent, not just the nearest", () => {
+  const messages = [msg(1, "approved"), msg(2, "sent"), msg(3)];
+  const c = computeCadence(messages[2], { messages, dispatches: [sent("msg_2", T0)], nowMs: T0 + 30 * DAY });
+  assert.equal(c.state, "blocked");
+  assert.match(c.reason, /Touch 1/);
+});

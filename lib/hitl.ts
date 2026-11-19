@@ -20,7 +20,7 @@ import { id as mkId, now } from "./ids";
 import type { ApprovalRecord, DispatchRecord, LeadStage, OutreachMessage } from "./types";
 import { advanceLead } from "./pipeline";
 import { recordReward } from "./rl";
-import { computeCadence } from "./cadence";
+import { computeCadence, HALTING_STAGES } from "./cadence";
 import { assertSafeRecipient, DispatchSafetyError } from "./privacy";
 
 export class GateViolationError extends Error {
@@ -271,10 +271,21 @@ export async function dispatch(
     );
     // Dispatch is an AI-executed action following a human decision; the
     // pipeline records both facts rather than collapsing them.
-    advanceLead(message.personId, "contacted", "ai_agent", opts.actorName ?? "Builder agent", {
-      reason: `Touch ${message.touch} ${record.status} via ${record.provider} after approval ${approval.id}`,
-      runId: opts.runId,
-    });
+    //
+    // Re-read the stage: the transport and billing calls above are awaited,
+    // and a rep may have recorded a reply in the meantime. Moving that lead
+    // back to "contacted" would silently reopen the halted sequence.
+    const stageNow = db.leads.find((l) => l.personId === message.personId)?.stage;
+    if (stageNow && HALTING_STAGES.includes(stageNow)) {
+      emit(opts.runId, "Cadence", "gate", `Lead kept at ${stageNow.replace(/_/g, " ")}`, {
+        detail: `Touch ${message.touch} finished sending after the lead moved on; the remaining touches stay stopped.`,
+      });
+    } else {
+      advanceLead(message.personId, "contacted", "ai_agent", opts.actorName ?? "Builder agent", {
+        reason: `Touch ${message.touch} ${record.status} via ${record.provider} after approval ${approval.id}`,
+        runId: opts.runId,
+      });
+    }
   }
 
   emit(

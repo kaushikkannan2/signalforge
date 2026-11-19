@@ -34,7 +34,7 @@
 import { db } from "./db";
 import { emit } from "./thinking";
 import { id as mkId, now } from "./ids";
-import type { Channel, OutreachMessage, Person } from "./types";
+import type { Channel, OutreachMessage, Person, RejectionCategory } from "./types";
 
 /* --- arms and context ----------------------------------------------------- */
 
@@ -376,6 +376,9 @@ export interface PreferencePair {
   /** What the model originally produced. */
   rejected: string;
   source: "human_edit" | "rejection";
+  /** Why the human rejected it, when they picked a category. */
+  rejectionCategory?: RejectionCategory;
+  rejectionReason?: string;
   messageId: string;
   at: string;
 }
@@ -397,13 +400,18 @@ export function preferencePairs(): PreferencePair[] {
     const message = db.messages.find((m) => m.id === approval.messageId);
     if (!message) continue;
 
-    if (approval.decision === "edited_and_approved" && approval.editedBody) {
-      const original = findOriginalBody(message.id) ?? message.body;
-      if (approval.editedBody.trim() !== original.trim()) {
+    if (approval.decision === "edited_and_approved" && (approval.editedBody || approval.editedSubject)) {
+      // Subject and body are one completion for email, so a subject-only
+      // correction is a preference example too.
+      const originalBody = findOriginalBody(message.id) ?? message.originalBody ?? message.body;
+      const originalSubject = message.originalSubject ?? message.subject;
+      const original = completion(originalSubject, originalBody);
+      const chosen = completion(approval.editedSubject ?? originalSubject, approval.editedBody ?? originalBody);
+      if (chosen.trim() !== original.trim()) {
         pairs.push({
           id: mkId("pref"),
           prompt: promptFor(message),
-          chosen: approval.editedBody,
+          chosen,
           rejected: original,
           source: "human_edit",
           messageId: message.id,
@@ -412,7 +420,7 @@ export function preferencePairs(): PreferencePair[] {
       }
     }
 
-    if (approval.decision === "rejected" && approval.rejectionReason) {
+    if (approval.decision === "rejected" && (approval.rejectionReason || approval.rejectionCategory)) {
       // A rejection without a replacement is a negative-only example. Recorded
       // separately because DPO needs a chosen completion, and inventing one
       // would be fabricating the human's preference.
@@ -420,8 +428,10 @@ export function preferencePairs(): PreferencePair[] {
         id: mkId("pref"),
         prompt: promptFor(message),
         chosen: "",
-        rejected: message.body,
+        rejected: completion(message.subject, message.body),
         source: "rejection",
+        rejectionCategory: approval.rejectionCategory,
+        rejectionReason: approval.rejectionReason,
         messageId: message.id,
         at: approval.decidedAt,
       });
@@ -430,13 +440,20 @@ export function preferencePairs(): PreferencePair[] {
   return pairs;
 }
 
+/** One completion as the model produces it: subject line first, for email. */
+function completion(subject: string | undefined, body: string): string {
+  return subject ? `Subject: ${subject}\n\n${body}` : body;
+}
+
 /** Reconstructs the instruction that produced a message, for the dataset. */
 function promptFor(message: OutreachMessage): string {
   const person = db.people.find((p) => p.id === message.personId);
   const company = db.companies.find((c) => c.id === message.companyId);
   const signals = db.signals.filter((s) => message.signalsUsed.includes(s.id));
   return [
-    `Write touch ${message.touch} of a ${message.channel} sequence.`,
+    `Write touch ${message.touch} of a ${message.channel} sequence.${
+      message.channel === "email" ? ' Start with a "Subject:" line.' : ""
+    }`,
     `Recipient: ${person?.fullName ?? "unknown"}, ${person?.title ?? ""} at ${company?.name ?? ""}.`,
     `Variant: ${message.variant}. Tone: ${message.toneConstraints.tone}. Max ${message.toneConstraints.maxWords} words. CTA: ${message.toneConstraints.cta}.`,
     signals.length
@@ -474,6 +491,8 @@ export interface LearningReport {
     pairs: number;
     usableForDpo: number;
     negativeOnly: number;
+    /** Rejections grouped by the category the human picked. */
+    rejectionsByCategory: Partial<Record<RejectionCategory, number>>;
     sample: PreferencePair | null;
   };
   /** The honesty table. Rendered verbatim in the UI. */
@@ -530,6 +549,12 @@ export function learningReport(): LearningReport {
       pairs: pairs.length,
       usableForDpo: pairs.filter((p) => p.source === "human_edit").length,
       negativeOnly: pairs.filter((p) => p.source === "rejection").length,
+      rejectionsByCategory: pairs.reduce<Partial<Record<RejectionCategory, number>>>((acc, p) => {
+        if (p.source === "rejection" && p.rejectionCategory) {
+          acc[p.rejectionCategory] = (acc[p.rejectionCategory] ?? 0) + 1;
+        }
+        return acc;
+      }, {}),
       sample: pairs.find((p) => p.source === "human_edit") ?? pairs[0] ?? null,
     },
     components: [

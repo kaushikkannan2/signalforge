@@ -21,6 +21,7 @@ import { HitlQueue } from "@/components/HitlQueue";
 import { Analytics, GraphInsights, PipelineBoard } from "@/components/Pipeline";
 import { RecordDrawer } from "@/components/RecordDrawer";
 import { Constellation } from "@/components/Constellation";
+import type { DecisionPayload } from "@/components/HitlQueue";
 import { Learning, type LearningData } from "@/components/Learning";
 import { Launch } from "@/components/Launch";
 import { Citations, Confidence, TierBadge } from "@/components/Confidence";
@@ -413,7 +414,7 @@ export default function Workspace() {
   async function hitlDecide(
     messageId: string,
     action: "approve" | "edit_and_approve" | "reject",
-    payload?: { editedBody?: string; rejectionReason?: string },
+    payload?: DecisionPayload,
   ) {
     try {
       const d = await post("/api/hitl", { action, messageId, ...payload });

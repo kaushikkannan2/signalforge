@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Citations, Confidence, TierBadge } from "./Confidence";
 import type {
   Company,
@@ -39,6 +40,7 @@ export function RecordDrawer({
   messages,
   lead,
   onClose,
+  onShowPath,
 }: {
   person?: Person;
   company?: Company;
@@ -46,6 +48,8 @@ export function RecordDrawer({
   messages: OutreachMessage[];
   lead?: Lead;
   onClose: () => void;
+  /** Draws a warm-intro path on the graph view. */
+  onShowPath?: (nodeIds: string[]) => void;
 }) {
   if (!person && !company) return null;
   const e = person?.enrichment;
@@ -216,6 +220,10 @@ export function RecordDrawer({
             </Section>
           )}
 
+          {person && (
+            <WarmIntros personId={person.id} onShowPath={onShowPath} />
+          )}
+
           {signals.length > 0 && (
             <Section title={`Buying signals (${signals.length})`}>
               {signals.map((s) => (
@@ -348,5 +356,75 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
       <span style={{ color: "var(--color-ink-faint)" }}>{label}</span>
       <span className="min-w-0 break-words">{children}</span>
     </div>
+  );
+}
+
+interface WarmFinding {
+  headline: string;
+  explanation: string;
+  actionable: string;
+  path: { nodes: { id: string; name: string }[] };
+}
+
+/**
+ * "Who can introduce me to this person?" — asked when the record opens, so a
+ * rep sees the warm route before deciding to send touch 1 cold.
+ */
+function WarmIntros({
+  personId,
+  onShowPath,
+}: {
+  personId: string;
+  onShowPath?: (nodeIds: string[]) => void;
+}) {
+  const [result, setResult] = useState<{ personId: string; findings: WarmFinding[] } | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/graph?warmFor=${encodeURIComponent(personId)}`)
+      .then((r) => (r.ok ? r.json() : { findings: [] }))
+      .catch(() => ({ findings: [] }))
+      .then((d) => {
+        if (live) setResult({ personId, findings: d.findings ?? [] });
+      });
+    return () => {
+      live = false;
+    };
+  }, [personId]);
+
+  // Ignore a result that belongs to the previously opened record.
+  const findings = result?.personId === personId ? result.findings : null;
+
+  return (
+    <Section title={`Warm introductions${findings ? ` (${findings.length})` : ""}`}>
+      {findings === null ? (
+        <p style={{ fontSize: "0.75rem", color: "var(--color-ink-faint)" }}>Searching the graph…</p>
+      ) : findings.length === 0 ? (
+        <p style={{ fontSize: "0.75rem", color: "var(--color-ink-faint)" }}>
+          Nobody on our side shares an employer or school with this person. Touch 1 goes cold.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {findings.map((f) => (
+            <li key={f.headline} className="pl-2.5 border-l-2" style={{ borderColor: "var(--color-vine)" }}>
+              <p style={{ fontSize: "0.8125rem", fontWeight: 600 }}>
+                {f.path.nodes[0]?.name} via {f.path.nodes[1]?.name}
+              </p>
+              <p style={{ fontSize: "0.75rem", color: "var(--color-ink-soft)" }}>{f.explanation}</p>
+              <p style={{ fontSize: "0.75rem", color: "var(--color-vine)" }}>→ {f.actionable}</p>
+              {onShowPath && (
+                <button
+                  onClick={() => onShowPath(f.path.nodes.map((n) => n.id))}
+                  className="mono mt-1 px-1.5 py-0.5 rounded border"
+                  style={{ borderColor: "var(--color-rule-strong)", fontSize: "0.6875rem" }}
+                >
+                  show on graph
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
   );
 }

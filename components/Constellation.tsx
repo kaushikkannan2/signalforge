@@ -72,12 +72,17 @@ export function Constellation({
   edges,
   focusId,
   onFocus,
+  path,
+  onClearPath,
   height = 460,
 }: {
   nodes: GNodeLite[];
   edges: GEdgeLite[];
   focusId?: string;
   onFocus?: (id: string) => void;
+  /** Node ids of a warm-intro path to draw end to end and highlight, in order. */
+  path?: string[];
+  onClearPath?: () => void;
   height?: number;
 }) {
   const [hover, setHover] = useState<SimNode | null>(null);
@@ -121,6 +126,13 @@ export function Constellation({
       }
     }
 
+    // A warm path runs us → bridge → buyer → account, which is three hops from
+    // the account. Pull every path node in regardless of the hop limit, at
+    // depth 1 so it is labelled.
+    for (const id of path ?? []) {
+      if (byId.has(id) && !depth.has(id)) depth.set(id, 1);
+    }
+
     const keep = new Set(depth.keys());
     const built: SimNode[] = [...keep]
       .filter((id) => byId.has(id))
@@ -129,7 +141,18 @@ export function Constellation({
       subNodes: built,
       subEdges: edges.filter((e) => keep.has(e.from) && keep.has(e.to)),
     };
-  }, [nodes, edges, focusId]);
+  }, [nodes, edges, focusId, path]);
+
+  const { pathNodes, pathEdgeKeys } = useMemo(() => {
+    const ids = path ?? [];
+    const keys = new Set<string>();
+    for (let i = 0; i < ids.length - 1; i++) {
+      keys.add(`${ids[i]}|${ids[i + 1]}`);
+      keys.add(`${ids[i + 1]}|${ids[i]}`);
+    }
+    return { pathNodes: new Set(ids), pathEdgeKeys: keys };
+  }, [path]);
+  const pathActive = pathNodes.size > 1;
 
   useEffect(() => {
     if (!subNodes.length) return;
@@ -181,6 +204,7 @@ export function Constellation({
 
   const nodeById = new Map(subNodes.map((n) => [n.id, n]));
   const focus = subNodes.find((n) => n.depth === 0);
+  const pathNames = (path ?? []).map((id) => nodeById.get(id)?.name).filter(Boolean);
 
   return (
     <div className="surface overflow-hidden" style={{ borderColor: "var(--color-rule)" }}>
@@ -193,6 +217,23 @@ export function Constellation({
         <span className="mono" style={{ fontSize: "0.625rem", color: "var(--color-ink-faint)" }}>
           {subNodes.length} nodes · {subEdges.length} edges · 2 hops
         </span>
+        {pathActive && (
+          <span className="flex items-center gap-1.5 flex-wrap" style={{ fontSize: "0.75rem" }}>
+            <span className="rule-label" style={{ color: "var(--color-ember)" }}>
+              warm path
+            </span>
+            <span>{pathNames.join(" → ")}</span>
+            {onClearPath && (
+              <button
+                onClick={onClearPath}
+                className="mono px-1.5 rounded border"
+                style={{ borderColor: "var(--color-rule-strong)", fontSize: "0.625rem" }}
+              >
+                clear
+              </button>
+            )}
+          </span>
+        )}
         <span className="flex items-center gap-2 ml-auto flex-wrap">
           {Object.entries(LABEL_STYLE).map(([label, s]) => (
             <span key={label} className="flex items-center gap-1" style={{ fontSize: "0.625rem" }}>
@@ -221,7 +262,8 @@ export function Constellation({
           const b = nodeById.get(e.to);
           if (!a?.x || !b?.x) return null;
           const isBridge = e.type === "previously_employed_at" || e.type === "studied_at";
-          const highlighted = hover && (hover.id === e.from || hover.id === e.to);
+          const onPath = pathActive && pathEdgeKeys.has(`${e.from}|${e.to}`);
+          const highlighted = hover ? hover.id === e.from || hover.id === e.to : onPath;
           return (
             <g key={e.id}>
               <line
@@ -230,9 +272,9 @@ export function Constellation({
                 x2={b.x}
                 y2={b.y}
                 stroke={highlighted ? "var(--color-ember)" : isBridge ? "var(--color-bridge)" : "var(--color-rule-strong)"}
-                strokeWidth={highlighted ? 1.8 : isBridge ? 1.4 : 1}
-                strokeDasharray={isBridge ? "4 3" : undefined}
-                opacity={hover && !highlighted ? 0.25 : 0.85}
+                strokeWidth={onPath && !hover ? 2.6 : highlighted ? 1.8 : isBridge ? 1.4 : 1}
+                strokeDasharray={isBridge && !onPath ? "4 3" : undefined}
+                opacity={(hover || pathActive) && !highlighted ? 0.2 : 0.9}
               />
               {highlighted && (
                 <text
@@ -250,10 +292,14 @@ export function Constellation({
 
         {subNodes.map((n) => {
           const style = LABEL_STYLE[n.label] ?? { fill: "#78716c", r: 6 };
-          const dim = hover && hover.id !== n.id && !subEdges.some(
-            (e) =>
-              (e.from === hover.id && e.to === n.id) || (e.to === hover.id && e.from === n.id),
-          );
+          const onPath = pathActive && pathNodes.has(n.id);
+          const dim = hover
+            ? hover.id !== n.id &&
+              !subEdges.some(
+                (e) =>
+                  (e.from === hover.id && e.to === n.id) || (e.to === hover.id && e.from === n.id),
+              )
+            : pathActive && !onPath;
           return (
             <g
               key={n.id}
@@ -266,6 +312,9 @@ export function Constellation({
               {n.depth === 0 && (
                 <circle r={style.r + 6} fill="none" stroke={style.fill} strokeWidth={1} opacity={0.4} />
               )}
+              {onPath && (
+                <circle r={style.r + 7} fill="none" stroke="var(--color-ember)" strokeWidth={2} />
+              )}
               {n.props.isInternal === true && (
                 <circle r={style.r + 4} fill="none" stroke="var(--color-vine)" strokeWidth={1.5} />
               )}
@@ -276,7 +325,7 @@ export function Constellation({
                 strokeWidth={1.5}
                 opacity={n.props.disqualified ? 0.4 : 1}
               />
-              {(n.depth <= 1 || hover?.id === n.id) && (
+              {(n.depth <= 1 || hover?.id === n.id || onPath) && (
                 <text
                   y={style.r + 11}
                   textAnchor="middle"

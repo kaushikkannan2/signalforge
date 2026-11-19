@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { graph } from "@/lib/graph";
-import { REASONING_QUERIES, type ReasoningQueryName } from "@/lib/reasoning";
+import {
+  REASONING_QUERIES,
+  WARM_INTRO_TO_CYPHER,
+  warmIntroPathsTo,
+  type ReasoningQueryName,
+} from "@/lib/reasoning";
 import { emit } from "@/lib/thinking";
 import { meter } from "@/lib/meter";
 import { id as mkId } from "@/lib/ids";
@@ -12,14 +17,41 @@ import { neo4jConfigured, runCypher, status as neoStatus, syncGraph } from "@/li
  * than shipping the whole thing and pruning in the browser.
  *
  *   ?focus=<nodeId>&hops=2   two-hop neighbourhood of one node
+ *   &path=<id>,<id>,...      also include every node on this path (max 8),
+ *                            so a warm-intro path is drawn end to end even
+ *                            when it runs past the hop limit
+ *   ?warmFor=<personId>      warm-introduction paths to one buyer
  *   ?stats=1                 counts only
  *   (no params)              neighbourhood of the densest qualified account
  */
+const MAX_PATH_NODES = 8;
+
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   if (url.searchParams.get("stats")) {
     return NextResponse.json({ stats: graph.stats(), neo4j: await neoStatus() });
   }
+
+  const warmFor = url.searchParams.get("warmFor");
+  if (warmFor) {
+    if (!graph.nodes.has(warmFor)) {
+      return NextResponse.json({ error: "Unknown person" }, { status: 404 });
+    }
+    return NextResponse.json({
+      personId: warmFor,
+      question: "Who on our side can introduce us to this person?",
+      cypher: WARM_INTRO_TO_CYPHER,
+      findings: warmIntroPathsTo(warmFor),
+    });
+  }
+
+  // Unknown ids are dropped rather than rejected: a stale path from an
+  // earlier query run should still render whatever of it still exists.
+  const path = (url.searchParams.get("path") ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => id && graph.nodes.has(id))
+    .slice(0, MAX_PATH_NODES);
 
   const hops = Math.min(3, Math.max(1, Number(url.searchParams.get("hops") ?? 2)));
   const cap = Math.min(200, Math.max(10, Number(url.searchParams.get("cap") ?? 70)));
@@ -53,10 +85,11 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const keep = new Set(depth.keys());
+  const keep = new Set([...depth.keys(), ...path]);
   return NextResponse.json({
     focus,
     hops,
+    path,
     nodes: [...keep].map((id) => {
       const n = graph.nodes.get(id)!;
       return { id: n.id, label: n.label, name: n.name, props: n.props };

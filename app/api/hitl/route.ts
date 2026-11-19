@@ -16,7 +16,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json()) as {
+  const raw: unknown = await req.json().catch(() => null);
+  const invalid = validate(raw);
+  if (invalid) return NextResponse.json({ error: invalid }, { status: 400 });
+
+  const body = raw as {
     action: "approve" | "edit_and_approve" | "reject" | "dispatch";
     messageId: string;
     decidedBy?: string;
@@ -25,9 +29,6 @@ export async function POST(req: NextRequest) {
     rejectionReason?: string;
     rejectionCategory?: string;
   };
-
-  const invalid = validate(body);
-  if (invalid) return NextResponse.json({ error: invalid }, { status: 400 });
 
   const runId = mkId("run");
   const decidedBy = body.decidedBy ?? "Kaushik (rep)";
@@ -72,34 +73,51 @@ export async function POST(req: NextRequest) {
   }
 }
 
-const ACTIONS = new Set(["approve", "edit_and_approve", "reject", "dispatch"]);
 const nonEmpty = (v: unknown): v is string => typeof v === "string" && v.trim().length > 0;
 
-/** Rejects malformed decisions before anything is written to the audit trail. */
-function validate(body: {
-  action?: unknown;
-  messageId?: unknown;
-  editedBody?: unknown;
-  editedSubject?: unknown;
-  rejectionReason?: unknown;
-  rejectionCategory?: unknown;
-}): string | null {
-  if (!ACTIONS.has(body.action as string)) return "Unknown action.";
-  if (!nonEmpty(body.messageId)) return "messageId is required.";
+/** Fields each action may carry, with a length cap for each string. */
+const FIELDS: Record<string, Record<string, number>> = {
+  approve: { decidedBy: 120 },
+  edit_and_approve: { decidedBy: 120, editedBody: 10_000, editedSubject: 300 },
+  reject: { decidedBy: 120, rejectionCategory: 40, rejectionReason: 2_000 },
+  dispatch: {},
+};
 
-  if (body.action === "reject") {
-    if (!isRejectionCategory(body.rejectionCategory)) {
+/**
+ * Rejects malformed decisions before anything is written to the audit trail.
+ * Every field decide() or dispatch() consumes is type-checked here, and
+ * fields that don't belong to the action are refused rather than ignored,
+ * because decide() would otherwise apply an edit carried on a plain approve.
+ */
+function validate(body: unknown): string | null {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) return "Body must be a JSON object.";
+  const b = body as Record<string, unknown>;
+  const allowed = typeof b.action === "string" ? FIELDS[b.action] : undefined;
+  if (!allowed || !Object.hasOwn(FIELDS, b.action as string)) return "Unknown action.";
+  if (!nonEmpty(b.messageId)) return "messageId is required.";
+
+  for (const [key, value] of Object.entries(b)) {
+    if (key === "action" || key === "messageId" || value === undefined) continue;
+    const max = allowed[key];
+    if (max === undefined) return `${key} is not accepted for ${b.action}.`;
+    if (typeof value !== "string") return `${key} must be a string.`;
+    if (value.length > max) return `${key} is longer than ${max} characters.`;
+  }
+  if (b.decidedBy !== undefined && !nonEmpty(b.decidedBy)) return "decidedBy cannot be empty.";
+
+  if (b.action === "reject") {
+    if (!isRejectionCategory(b.rejectionCategory)) {
       return `rejectionCategory must be one of: ${Object.keys(REJECTION_CATEGORIES).join(", ")}.`;
     }
-    if (body.rejectionCategory === "other" && !nonEmpty(body.rejectionReason)) {
+    if (b.rejectionCategory === "other" && !nonEmpty(b.rejectionReason)) {
       return "Say why when the rejection category is \"other\".";
     }
   }
 
-  if (body.action === "edit_and_approve") {
-    if (body.editedBody !== undefined && !nonEmpty(body.editedBody)) return "editedBody cannot be empty.";
-    if (body.editedSubject !== undefined && !nonEmpty(body.editedSubject)) return "editedSubject cannot be empty.";
-    if (body.editedBody === undefined && body.editedSubject === undefined) {
+  if (b.action === "edit_and_approve") {
+    if (b.editedBody !== undefined && !nonEmpty(b.editedBody)) return "editedBody cannot be empty.";
+    if (b.editedSubject !== undefined && !nonEmpty(b.editedSubject)) return "editedSubject cannot be empty.";
+    if (b.editedBody === undefined && b.editedSubject === undefined) {
       return "edit_and_approve needs editedBody or editedSubject.";
     }
   }

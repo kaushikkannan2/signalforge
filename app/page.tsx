@@ -76,6 +76,7 @@ export default function Workspace() {
   const [drawer, setDrawer] = useState<{ personId?: string; companyId?: string } | null>(null);
   const [snapshotGraph, setSnapshotGraph] = useState<{ nodes: any[]; edges: any[] } | null>(null);
   const [graphFocus, setGraphFocus] = useState<string | undefined>();
+  const [graphPath, setGraphPath] = useState<string[] | undefined>();
   const [learning, setLearning] = useState<LearningData | null>(null);
   const [summary, setSummary] = useState<string | undefined>();
   const [summaries, setSummaries] = useState<Record<string, string>>({});
@@ -108,8 +109,11 @@ export default function Workspace() {
 
   // Fetches only the neighbourhood the constellation will draw, not the whole
   // graph — at production scale the full snapshot is multiple megabytes.
-  const loadGraph = useCallback(async (focus?: string) => {
-    const qs = focus ? `?focus=${encodeURIComponent(focus)}&hops=2&cap=70` : "?hops=2&cap=70";
+  const loadGraph = useCallback(async (focus?: string, path?: string[]) => {
+    const params = new URLSearchParams({ hops: "2", cap: "70" });
+    if (focus) params.set("focus", focus);
+    if (path?.length) params.set("path", path.join(","));
+    const qs = `?${params}`;
     const r = await fetch(`/api/graph${qs}`).then((x) => x.json()).catch(() => null);
     if (r?.nodes) setSnapshotGraph({ nodes: r.nodes, edges: r.edges });
   }, []);
@@ -363,8 +367,22 @@ export default function Workspace() {
 
   const focusGraph = (id: string) => {
     setGraphFocus(id);
+    setGraphPath(undefined);
     setView("graph");
     loadGraph(id);
+  };
+
+  // Centres the graph on the account at the end of a warm-intro path and
+  // highlights the route from our side to the buyer.
+  const showPath = (ids: string[]) => {
+    if (ids.length < 2) return;
+    const focus = ids[ids.length - 1];
+    setGraphPath(ids);
+    setGraphFocus(focus);
+    setDrawer(null);
+    setView("graph");
+    loadGraph(focus, ids);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const loadScenario = (scale: number) =>
@@ -397,6 +415,7 @@ export default function Workspace() {
       setGraphResults([]);
       setSnapshotGraph(null);
       setGraphFocus(undefined);
+      setGraphPath(undefined);
       setLearning(null);
       setDrawer(null);
       setView("intake");
@@ -772,7 +791,7 @@ export default function Workspace() {
                   body="Multi-hop questions a spreadsheet cannot express. Each query is written twice — real Cypher and an in-process traversal — kept adjacent so they cannot drift."
                   actions={[
                     { label: "Run graph queries", onClick: runGraph, disabled: Boolean(busy) },
-                    { label: "Refresh graph", onClick: () => loadGraph(graphFocus), secondary: true },
+                    { label: "Refresh graph", onClick: () => loadGraph(graphFocus, graphPath), secondary: true },
                   ]}
                 />
                 {snapshotGraph && (
@@ -780,16 +799,25 @@ export default function Workspace() {
                     nodes={snapshotGraph.nodes}
                     edges={snapshotGraph.edges}
                     focusId={graphFocus}
+                    path={graphPath}
+                    onClearPath={() => {
+                      setGraphPath(undefined);
+                      loadGraph(graphFocus);
+                    }}
                     onFocus={(id) => {
                       setGraphFocus(id);
+                      // Walking along the highlighted path keeps it; stepping
+                      // off it clears it.
+                      const keepPath = graphPath?.includes(id) ? graphPath : undefined;
+                      setGraphPath(keepPath);
                       // Walking the graph refetches the next neighbourhood
                       // rather than paging in the whole thing up front.
-                      loadGraph(id);
+                      loadGraph(id, keepPath);
                     }}
                   />
                 )}
                 {graphResults.length ? (
-                  <GraphInsights results={graphResults} />
+                  <GraphInsights results={graphResults} onShowPath={showPath} />
                 ) : (
                   <EmptyState
                     title="No queries run yet"
@@ -868,6 +896,7 @@ export default function Workspace() {
           messages={messages.filter((m) => m.personId === drawerPerson?.id)}
           lead={leads.find((l) => l.personId === drawerPerson?.id)}
           onClose={() => setDrawer(null)}
+          onShowPath={showPath}
         />
       )}
       <CommandPalette commands={commands} />

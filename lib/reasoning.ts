@@ -10,7 +10,7 @@
 // These are kept adjacent so they cannot drift into telling different stories.
 // ============================================================================
 
-import { graph, type GNode, type GPath } from "./graph";
+import { graph, type EdgeType, type GNode, type GPath } from "./graph";
 import { db, signalsFor } from "./db";
 
 export interface ReasoningResult {
@@ -36,6 +36,8 @@ export interface ReasoningResult {
 //    "Who on our side already knows someone who can walk us in?"
 //    Two hops through a shared former employer or a shared institution.
 // ---------------------------------------------------------------------------
+
+const BRIDGE_EDGES: EdgeType[] = ["previously_employed_at", "studied_at"];
 
 export const WARM_INTRO_CYPHER = `
 MATCH (us:Person {isInternal: true})
@@ -68,14 +70,8 @@ export function warmIntroPaths(limit = 40): ReasoningResult {
   const EXAMINE_CAP = 20000;
 
   outer: for (const us of internal) {
-    for (const { node: bridge } of graph.neighbours(us.id, [
-      "previously_employed_at",
-      "studied_at",
-    ])) {
-      for (const { node: target, edge } of graph.neighbours(bridge.id, [
-        "previously_employed_at",
-        "studied_at",
-      ])) {
+    for (const { node: bridge, edge: usEdge } of graph.neighbours(us.id, BRIDGE_EDGES)) {
+      for (const { node: target, edge } of graph.neighbours(bridge.id, BRIDGE_EDGES)) {
         if (++examined > EXAMINE_CAP) break outer;
         if (target.id === us.id || target.label !== "Person") continue;
         const employer = graph
@@ -83,17 +79,7 @@ export function warmIntroPaths(limit = 40): ReasoningResult {
           .find((n) => n.node.label === "Company");
         if (!employer || employer.node.props.disqualified) continue;
 
-        const kind = edge.type === "studied_at" ? "studied at" : "both worked at";
-        findings.push({
-          headline: `${us.name} → ${bridge.name} → ${target.name} at ${employer.node.name}`,
-          explanation: `${us.name} and ${target.name} ${kind} ${bridge.name}. That shared history is a referable introduction rather than a cold approach.`,
-          strength: Number(employer.node.props.fit ?? 50) / 100,
-          path: {
-            nodes: [us, bridge, target, employer.node].map(short),
-            edgeTypes: [edge.type, edge.type, "works_at"],
-          },
-          actionable: `Ask ${us.name} to forward the ${employer.node.name} sequence to ${target.name} (${target.props.title}) instead of sending touch 1 cold.`,
-        });
+        findings.push(warmFinding(us, usEdge.type, bridge, edge.type, target, employer.node));
         [us, bridge, target, employer.node].forEach((n) => touched.add(n.id));
       }
     }
@@ -109,6 +95,74 @@ export function warmIntroPaths(limit = 40): ReasoningResult {
     examined,
     truncated: examined > EXAMINE_CAP,
   };
+}
+
+/** One warm path, described the same way wherever it is found. */
+function warmFinding(
+  us: GNode,
+  usEdge: EdgeType,
+  bridge: GNode,
+  targetEdge: EdgeType,
+  target: GNode,
+  employer: GNode,
+): ReasoningResult["findings"][number] {
+  const kind =
+    usEdge === "studied_at" && targetEdge === "studied_at"
+      ? "both studied at"
+      : usEdge === "previously_employed_at" && targetEdge === "previously_employed_at"
+        ? "both worked at"
+        : "share a history at";
+  return {
+    headline: `${us.name} → ${bridge.name} → ${target.name} at ${employer.name}`,
+    explanation: `${us.name} and ${target.name} ${kind} ${bridge.name}. That shared history is a referable introduction rather than a cold approach.`,
+    strength: Number(employer.props.fit ?? 50) / 100,
+    path: {
+      nodes: [us, bridge, target, employer].map(short),
+      edgeTypes: [usEdge, targetEdge, "works_at"],
+    },
+    actionable: `Ask ${us.name} to forward the ${employer.name} sequence to ${target.name} (${target.props.title}) instead of sending touch 1 cold.`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 1b. Warm introductions to ONE buyer.
+//     "Who on our side can introduce me to this person?" The same two-hop
+//     pattern as query 1, anchored on the target, so it is cheap enough to
+//     run whenever a rep opens a record rather than only in a batch.
+// ---------------------------------------------------------------------------
+
+export const WARM_INTRO_TO_CYPHER = `
+MATCH (target:Person {id: $personId})-[:works_at]->(acct:Company)
+MATCH (target)-[tb:previously_employed_at|studied_at]->(bridge)
+      <-[ub:previously_employed_at|studied_at]-(us:Person {isInternal: true})
+RETURN us.fullName AS introducer, type(ub) AS introducerLink,
+       bridge.name AS sharedContext, type(tb) AS buyerLink,
+       acct.name AS account, acct.fit AS fitScore
+ORDER BY CASE WHEN type(ub) = type(tb) THEN 0 ELSE 1 END, acct.fit DESC
+LIMIT 5`.trim();
+
+export function warmIntroPathsTo(personId: string, limit = 5): ReasoningResult["findings"] {
+  const target = graph.nodes.get(personId);
+  if (!target || target.label !== "Person" || target.props.isInternal === true) return [];
+  const employer = graph
+    .neighbours(target.id, ["works_at"])
+    .find((n) => n.node.label === "Company")?.node;
+  if (!employer) return [];
+
+  const findings: ReasoningResult["findings"] = [];
+  for (const { node: bridge, edge: targetEdge } of graph.neighbours(target.id, BRIDGE_EDGES)) {
+    for (const { node: us, edge: usEdge } of graph.neighbours(bridge.id, BRIDGE_EDGES)) {
+      if (us.label !== "Person" || us.props.isInternal !== true) continue;
+      findings.push(warmFinding(us, usEdge.type, bridge, targetEdge.type, target, employer));
+    }
+  }
+  // A shared employer or a shared school on both sides is a stronger
+  // introduction than a mixed link, so those come first.
+  const sameKind = (f: ReasoningResult["findings"][number]) =>
+    f.path.edgeTypes[0] === f.path.edgeTypes[1] ? 0 : 1;
+  return dedupe(findings)
+    .sort((a, b) => sameKind(a) - sameKind(b))
+    .slice(0, limit);
 }
 
 // ---------------------------------------------------------------------------

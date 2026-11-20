@@ -1,0 +1,38 @@
+{
+  "autoReview": [],
+  "skipReview": "AUTOMATIC",
+  "triggerOnDrafts": false,
+  "effort": "base",
+  "strictness": 2,
+  "commentTypes": ["logic", "syntax", "style"],
+  "includeConfidenceScore": true,
+  "includeSequenceDiagram": true,
+  "includeIssuesTable": true,
+  "fixWithAI": true,
+  "ignorePatterns": "*.md\npackage-lock.json\nlib/fixtures/**",
+  "instructions": "SignalForge is an auditable outbound GTM engine: cited ICP inference and discovery, enrichment, outreach drafting, a human-in-the-loop (HITL) approval gate before anything is sent, a Thompson-sampling bandit that learns from approve/edit/reject decisions, and a knowledge graph for warm-intro and displacement reasoning. Prioritise correctness of the HITL gate, anything that could email a real prospect, the credit ledger, and the bandit's reward bookkeeping. Skip cosmetic nitpicks.",
+  "customContext": {
+    "rules": [
+      {
+        "rule": "No outreach message may be dispatched without a human approval record. Any option, flag or code path that lets dispatch() skip approvalFor() is a critical bug. Additional preconditions may be added to dispatch(); none may be removed.",
+        "scope": ["lib/hitl.ts", "app/api/hitl/**"]
+      },
+      {
+        "rule": "Every human decision at the gate must be recorded as an ApprovalRecord with actorType 'human'. Never infer, default or synthesise a human decision.",
+        "scope": ["lib/hitl.ts", "app/api/hitl/**", "components/HitlQueue.tsx"]
+      },
+      {
+        "rule": "The credit ledger invariant is balance === max(0, granted - consumed). Any code that changes balance without keeping granted/consumed consistent is a bug.",
+        "scope": ["lib/meter.ts", "app/api/**"]
+      },
+      {
+        "rule": "Bandit rewards must be recorded at most once per (message, source). Double-counting a decision skews the posterior.",
+        "scope": ["lib/rl.ts", "lib/hitl.ts", "lib/pipeline.ts"]
+      },
+      {
+        "rule": "API routes must validate request bodies before mutating db state, and must never echo secrets (process.env values) into responses or emit() details.",
+        "scope": ["app/api/**"]
+      }
+    ]
+  }
+}
